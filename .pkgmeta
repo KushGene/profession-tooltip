@@ -1,11 +1,13 @@
 # Paketierung für CurseForge / Wago / GitHub Releases (BigWigs Packager)
+# Hinweis: Keine Kommentare hinter Einträgen – der Packager liest sie sonst als Teil des Pfads.
 package-as: ProfessionTooltip
 
 manual-changelog:
   filename: CHANGELOG.md
   markup-type: markdown
 
+# Tools = Datengenerator, wird im Spiel nicht gebraucht
 ignore:
-  - Tools       # Datengenerator, wird im Spiel nicht gebraucht
+  - Tools
   - README.md
   - CHANGELOG.md
