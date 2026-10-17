@@ -5,6 +5,7 @@
 ## Author: KushGene
 ## Version: @project-version@
 ## IconTexture: Interface\Icons\INV_Scroll_03
+## X-Curse-Project-ID: 1749915
 ## X-Wago-ID: kNMP8rGz
 ## SavedVariables: ProfessionTooltipDB
 ## SavedVariablesPerCharacter: ProfessionTooltipCharDB
