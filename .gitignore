@@ -8,3 +8,6 @@ __pycache__/
 
 # Lokale Notizen (nicht veröffentlichen)
 RELEASE-GUIDE.md
+
+# Vom Release-Workflow erzeugt
+.release-notes.md

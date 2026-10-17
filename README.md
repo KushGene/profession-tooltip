@@ -86,6 +86,26 @@ Inside the repository the data generator needs to know the WoW folder:
 WOW_DIR="/path/to/World of Warcraft" python3 Tools/build_data.py
 ```
 
+## Release
+
+1. Update `CHANGELOG.md` and commit.
+2. Create and push a tag – the version in the TOC is taken from the tag automatically:
+   ```sh
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+3. The GitHub Action (`.github/workflows/release.yml`) builds the zip with the BigWigs packager
+   (without `Tools/`) and publishes it as a GitHub release.
+
+Additional upload targets are set up once:
+
+| Target | Secret in the GitHub repo (Settings → Secrets → Actions) | Entry in `ProfessionTooltip.toc` |
+|---|---|---|
+| Wago | `WAGO_API_TOKEN` (wago.io → Account → API Keys) | `## X-Wago-ID: <ID>` |
+| CurseForge | `CF_API_KEY` (curseforge.com → Account → API Tokens) | `## X-Curse-Project-ID: <project ID>` |
+
+Alternatively, Wago can pick up the GitHub releases directly via its GitHub integration.
+
 ## License
 
 [GPL-3.0](LICENSE)

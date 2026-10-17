@@ -2,8 +2,10 @@
 # Hinweis: Keine Kommentare hinter Einträgen – der Packager liest sie sonst als Teil des Pfads.
 package-as: ProfessionTooltip
 
+# Nur der Abschnitt der veröffentlichten Version aus CHANGELOG.md; die Datei erzeugt
+# .github/scripts/extract_changelog.py im Release-Workflow.
 manual-changelog:
-  filename: CHANGELOG.md
+  filename: .release-notes.md
   markup-type: markdown
 
 # Tools = Datengenerator, wird im Spiel nicht gebraucht
@@ -11,3 +13,4 @@ ignore:
   - Tools
   - README.md
   - CHANGELOG.md
+  - .release-notes.md
