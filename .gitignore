@@ -1,0 +1,7 @@
+# Datengenerator: Download-Cache und Python-Reste
+Tools/.cache/
+__pycache__/
+*.pyc
+
+# Ausgabe des BigWigs-Packagers bei lokalen Testläufen
+.release/

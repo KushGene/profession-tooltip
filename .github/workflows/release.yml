@@ -1,0 +1,26 @@
+# Baut bei jedem Versions-Tag (z. B. v1.1.0) das Addon-Paket und veröffentlicht es.
+# Ziele werden über Secrets und die IDs in der TOC aktiviert (siehe README, Abschnitt "Release"):
+#   GitHub Releases: immer (GITHUB_TOKEN ist automatisch vorhanden)
+#   Wago:            Secret WAGO_API_TOKEN + "## X-Wago-ID" in der TOC
+#   CurseForge:      Secret CF_API_KEY     + "## X-Curse-Project-ID" in der TOC
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+      WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: BigWigsMods/packager@v2

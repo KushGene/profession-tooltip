@@ -1,0 +1,179 @@
+-- Database.lua
+-- Rezept-Registry (gefüllt von Data/*.lua) und Indizes Zutat -> Rezepte, Item -> Rezepte.
+--
+-- Rezeptformat (kompakt, damit die Data-Dateien klein bleiben):
+--   [spellID] = { requiredSkill, "Fallback-Name", { itemID, count, ... }, createdItem, yellowAt, greenAt, grayAt }
+-- requiredSkill 0 = unbekannt, createdItem 0 = kein Item (z. B. Verzauberungen).
+-- Die Farbstufen sind optional; fehlen sie, gilt die beim Scan gemeldete Schwierigkeit.
+local _, ns = ...
+
+local SKILL, NAME, REAGENTS, CREATED, YELLOW, GREEN, GRAY = 1, 2, 3, 4, 5, 6, 7
+local DIFFICULTY_OPTIMAL, DIFFICULTY_MEDIUM, DIFFICULTY_EASY, DIFFICULTY_TRIVIAL = 0, 1, 2, 3
+
+local recipes = {}          -- [spellID] = recipe
+local recipeProfession = {} -- [spellID] = skillLineID
+local recipeItems = {}      -- [Rezept-Item] = gelehrter Spell
+local reagentIndex          -- [itemID] = { spellID, ... }, sortiert; wird bei Bedarf aufgebaut
+local createdIndex          -- [itemID] = { spellID, ... } für hergestellte Items
+
+function ns.RegisterRecipes(professionID, list)
+    for spellID, recipe in pairs(list) do
+        recipes[spellID] = recipe
+        recipeProfession[spellID] = professionID
+    end
+end
+
+function ns.RegisterRecipeItems(list)
+    for itemID, spellID in pairs(list) do
+        recipeItems[itemID] = spellID
+    end
+end
+
+-- Liefert Rezept und Beruf; berücksichtigt auch per Scan gefundene Rezepte ohne DB-Eintrag
+function ns.GetRecipe(spellID)
+    local recipe = recipes[spellID]
+    if recipe then
+        return recipe, recipeProfession[spellID]
+    end
+    local extra = ns.char.extra[spellID]
+    if extra then
+        return extra, extra.profession
+    end
+end
+
+function ns.ForEachRecipe(callback)
+    for spellID, recipe in pairs(recipes) do
+        callback(spellID, recipe, recipeProfession[spellID])
+    end
+end
+
+function ns.GetRecipeSkill(recipe)
+    return recipe[SKILL] or 0
+end
+
+function ns.GetRecipeName(spellID, recipe)
+    return ns.GetSpellName(spellID) or recipe[NAME]
+end
+
+function ns.GetRecipeReagents(recipe)
+    return recipe[REAGENTS]
+end
+
+function ns.GetCreatedItem(recipe)
+    local itemID = recipe[CREATED]
+    return itemID and itemID ~= 0 and itemID or nil
+end
+
+function ns.GetGrayAt(recipe)
+    return recipe[GRAY]
+end
+
+function ns.GetReagentCount(recipe, itemID)
+    local reagents = recipe[REAGENTS]
+    for i = 1, #reagents, 2 do
+        if reagents[i] == itemID then
+            return reagents[i + 1]
+        end
+    end
+    return 0
+end
+
+-- Spell, den ein Rezept-Item lehrt (oder nil)
+function ns.GetSpellTaughtBy(itemID)
+    return recipeItems[itemID]
+end
+
+local function AddToIndex(index, itemID, spellID)
+    local list = index[itemID]
+    if not list then
+        list = {}
+        index[itemID] = list
+    end
+    list[#list + 1] = spellID
+end
+
+-- Sortierung: Beruf (Anzeigereihenfolge), dann benötigter Skill, dann Spell-ID (stabil)
+local function CompareSpells(a, b)
+    local recipeA, profA = ns.GetRecipe(a)
+    local recipeB, profB = ns.GetRecipe(b)
+    if profA ~= profB then
+        return ns.GetProfession(profA).order < ns.GetProfession(profB).order
+    end
+    local skillA, skillB = recipeA[SKILL] or 0, recipeB[SKILL] or 0
+    if skillA ~= skillB then
+        return skillA < skillB
+    end
+    return a < b
+end
+
+local function BuildIndexes()
+    reagentIndex, createdIndex = {}, {}
+    local function Add(spellID, recipe)
+        local reagents = recipe[REAGENTS]
+        for i = 1, #reagents, 2 do
+            AddToIndex(reagentIndex, reagents[i], spellID)
+        end
+        if recipe[CREATED] and recipe[CREATED] ~= 0 then
+            AddToIndex(createdIndex, recipe[CREATED], spellID)
+        end
+    end
+    for spellID, recipe in pairs(recipes) do
+        Add(spellID, recipe)
+    end
+    for spellID, extra in pairs(ns.char.extra) do
+        if not recipes[spellID] and ns.GetProfession(extra.profession) then
+            Add(spellID, extra)
+        end
+    end
+    for _, list in pairs(reagentIndex) do
+        table.sort(list, CompareSpells)
+    end
+    for _, list in pairs(createdIndex) do
+        table.sort(list, CompareSpells)
+    end
+end
+
+-- Spell-IDs aller Rezepte, die diese Zutat verwenden (oder nil)
+function ns.GetRecipesForItem(itemID)
+    if not reagentIndex then BuildIndexes() end
+    return reagentIndex[itemID]
+end
+
+-- Spell-IDs aller Rezepte, die dieses Item herstellen (oder nil)
+function ns.GetRecipesCreating(itemID)
+    if not createdIndex then BuildIndexes() end
+    return createdIndex[itemID]
+end
+
+-- Schwierigkeit (0 orange .. 3 grau) eines gelernten Rezepts, nil wenn nicht gelernt.
+-- Gelernt: laut Scan oder laut IsPlayerSpell (greift auch ohne geöffnetes Berufsfenster).
+-- Die Farbe wird aus der aktuellen Berufsstufe berechnet, damit sie beim Skillen aktuell bleibt.
+function ns.GetKnownDifficulty(spellID)
+    local scanned = ns.char.known[spellID]
+    if scanned == nil and not IsPlayerSpell(spellID) then
+        return nil
+    end
+    local recipe, professionID = ns.GetRecipe(spellID)
+    local rank = professionID and ns.GetProfessionRank(professionID)
+    if recipe and rank and recipe[YELLOW] then
+        if rank >= recipe[GRAY] then return DIFFICULTY_TRIVIAL end
+        if rank >= recipe[GREEN] then return DIFFICULTY_EASY end
+        if rank >= recipe[YELLOW] then return DIFFICULTY_MEDIUM end
+        return DIFFICULTY_OPTIMAL
+    end
+    return scanned or DIFFICULTY_OPTIMAL
+end
+
+-- Anzahl Rezepte und Zutaten (für die Statistik in den Einstellungen)
+function ns.GetDatabaseStats()
+    if not reagentIndex then BuildIndexes() end
+    local recipeCount, itemCount = 0, 0
+    for _ in pairs(recipes) do recipeCount = recipeCount + 1 end
+    for _ in pairs(reagentIndex) do itemCount = itemCount + 1 end
+    return recipeCount, itemCount
+end
+
+-- Neue Scan-Rezepte ohne DB-Eintrag erfordern einen Neuaufbau
+function ns.InvalidateIndex()
+    reagentIndex, createdIndex = nil, nil
+end
