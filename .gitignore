@@ -5,3 +5,6 @@ __pycache__/
 
 # Ausgabe des BigWigs-Packagers bei lokalen Testläufen
 .release/
+
+# Lokale Notizen (nicht veröffentlichen)
+RELEASE-GUIDE.md
