@@ -14,6 +14,8 @@ the installed WoW: Forever client. Not loaded by WoW and excluded from releases 
    ```sh
    WOW_DIR="/path/to/World of Warcraft" python3 Tools/build_data.py
    ```
+   To only check what would change (no files written), add `--dry-run`. The report at the end
+   lists new, removed and changed recipes per profession and tells you whether an update is worth it.
 3. Check the output (recipes per profession, see below), `/reload` in game and test briefly.
 4. Commit the changed data, update `CHANGELOG.md` and publish a release (see the main README).
 
@@ -25,6 +27,7 @@ Requires only Python 3, no extra packages. A run takes about 15 seconds.
 |---|---|
 | `--refresh` | Reload the web data (see below) even if the cache is still fresh |
 | `--offline` | No internet; uses only the client and the existing cache |
+| `--dry-run` | Only report what would change, don't write any files |
 | `--wow-dir PATH` | WoW installation folder (alternatively the environment variable `WOW_DIR`) |
 | `--product NAME` | Client product from `World of Warcraft/.build.info` (default: `wow_classic_beta`). Adjust after launch if needed, or change `PRODUCT` in `build_data.py` |
 
@@ -43,7 +46,7 @@ Requires only Python 3, no extra packages. A run takes about 15 seconds.
 |---|---|
 | Recipes, reagents, quantities, difficulty levels, names, crafted item | Game client |
 | Required skill | Recipe item in the game client |
-| Required skill of trainer recipes | foreverdb.net (not in the client); without a match `0` = unknown, nothing is estimated |
+| Required skill of trainer recipes | Not in the client. 1) Trainer scans: the addon records the skill whenever you talk to a profession trainer (stored in your SavedVariables, read automatically from the WoW folder). 2) foreverdb.net. Without a match `0` = unknown, nothing is estimated |
 | Available in Forever? | Classic recipes (spell ID < 30000), Forever recipes (≥ 1229000) and everything listed on seemeta.com. This filters out Season of Discovery recipes that exist in the client but cannot be learned in Forever |
 
 Also downloaded and cached for 7 days: the table definitions
@@ -53,10 +56,10 @@ Also downloaded and cached for 7 days: the table definitions
 ## Reading the output
 
 ```
-Alchemy          183 Rezepte  (Skill: 137 Rezept-Item, 30 foreverdb, 16 unbekannt; 13 nicht in Forever)
+Alchemy          183 Rezepte  (Lernstufe: 137 Rezept-Item, 2 Lehrer-Scan, 30 foreverdb, 14 unbekannt; 13 nicht in Forever)
 ```
 
-- **Rezept-Item / foreverdb / unbekannt:** where the required skill comes from (recipe item / foreverdb / unknown)
+- **Rezept-Item / Lehrer-Scan / foreverdb / unbekannt:** where the required skill comes from (recipe item / trainer scan / foreverdb / unknown)
 - **nicht in Forever:** present in the client but filtered out (mostly Season of Discovery)
 
 If "unbekannt" rises noticeably after a patch, foreverdb probably doesn't have the new trainer

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Talking to a profession trainer now records the required skill of trainer recipes, which aren't part of the game files – unknown skill levels fill in automatically
+
 ## 1.0.0
 
 First release – successor of Cooking Tooltip and Alchemy Tooltip for all professions in WoW: Forever.
