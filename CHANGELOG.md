@@ -3,7 +3,7 @@
 Changes for players, newest version first. On release, only the section of the released
 version is posted as "What's new" on CurseForge, Wago and GitHub.
 
-## Unreleased
+## 1.0.1 – 2026-10-17
 
 ### New
 - Talking to a profession trainer now records the required skill of the recipes they teach. Recipes without a known skill level fill in automatically.
