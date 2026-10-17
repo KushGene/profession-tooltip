@@ -6,6 +6,8 @@ ns.name = addonName
 ns.version = (C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version")) or ""
 if ns.version:find("@", 1, true) then
     ns.version = "dev" -- direkt aus dem Repository geladen (Packager hat die Version noch nicht eingesetzt)
+else
+    ns.version = ns.version:gsub("^v", "") -- der Packager setzt den Tag ein, z. B. "v1.0.0"
 end
 ns.ICON = "Interface\\Icons\\INV_Scroll_03"
 
