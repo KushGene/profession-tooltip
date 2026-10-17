@@ -1,10 +1,10 @@
-"""Minimaler Leser für den lokalen CASC-Speicher von World of Warcraft.
+"""Minimal reader for World of Warcraft's local CASC storage.
 
-Liest Dateien per FileDataID aus einer lokalen Installation (Data/-Verzeichnis), ohne
-externe Abhängigkeiten. Unterstützt nur, was zum Auslesen von DB2-Tabellen nötig ist:
-lokale Indizes, BLTE (unkomprimiert/zlib), Encoding- und Root-Datei (MFST).
-Verschlüsselte BLTE-Blöcke (Salsa20) werden mit bekannten TACT-Keys entschlüsselt; Blöcke mit
-unbekanntem Schlüssel werden – wie bei anderen Tools üblich – mit Nullen gefüllt.
+Reads files by FileDataID from a local installation (Data/ directory), without
+external dependencies. Supports only what is needed to read DB2 tables:
+local indexes, BLTE (uncompressed/zlib), encoding and root file (MFST).
+Encrypted BLTE blocks (Salsa20) are decrypted with known TACT keys; blocks with an
+unknown key are filled with zeros – as is common with other tools.
 """
 import bisect
 import os
@@ -21,7 +21,7 @@ def _hex_path(base, key_hex):
 
 
 def _salsa20_xor(key, nonce, data):
-    """Salsa20/20 mit 128-Bit-Schlüssel (so verschlüsselt Blizzard BLTE-Blöcke)."""
+    """Salsa20/20 with a 128-bit key (this is how Blizzard encrypts BLTE blocks)."""
     constants = struct.unpack("<4I", b"expand 16-byte k")
     k = struct.unpack("<4I", key)
     n = struct.unpack("<2I", nonce)
@@ -36,7 +36,7 @@ def _salsa20_xor(key, nonce, data):
                  block_index & mask, block_index >> 32, constants[2], k[0], k[1], k[2], k[3], constants[3]]
         x = state[:]
         for _ in range(10):
-            # Spalten
+            # Columns
             x[4] ^= rotl((x[0] + x[12]) & mask, 7); x[8] ^= rotl((x[4] + x[0]) & mask, 9)
             x[12] ^= rotl((x[8] + x[4]) & mask, 13); x[0] ^= rotl((x[12] + x[8]) & mask, 18)
             x[9] ^= rotl((x[5] + x[1]) & mask, 7); x[13] ^= rotl((x[9] + x[5]) & mask, 9)
@@ -45,7 +45,7 @@ def _salsa20_xor(key, nonce, data):
             x[6] ^= rotl((x[2] + x[14]) & mask, 13); x[10] ^= rotl((x[6] + x[2]) & mask, 18)
             x[3] ^= rotl((x[15] + x[11]) & mask, 7); x[7] ^= rotl((x[3] + x[15]) & mask, 9)
             x[11] ^= rotl((x[7] + x[3]) & mask, 13); x[15] ^= rotl((x[11] + x[7]) & mask, 18)
-            # Zeilen
+            # Rows
             x[1] ^= rotl((x[0] + x[3]) & mask, 7); x[2] ^= rotl((x[1] + x[0]) & mask, 9)
             x[3] ^= rotl((x[2] + x[1]) & mask, 13); x[0] ^= rotl((x[3] + x[2]) & mask, 18)
             x[6] ^= rotl((x[5] + x[4]) & mask, 7); x[7] ^= rotl((x[6] + x[5]) & mask, 9)
@@ -62,7 +62,7 @@ def _salsa20_xor(key, nonce, data):
 
 
 def read_blte(data, keys=None):
-    """Dekodiert einen BLTE-Container. keys: {Schlüsselname (Hex, groß): 16-Byte-Schlüssel}"""
+    """Decodes a BLTE container. keys: {key name (hex, upper case): 16-byte key}"""
     if data[:4] != b"BLTE":
         raise ValueError("kein BLTE")
     header_size = struct.unpack(">I", data[4:8])[0]
@@ -103,8 +103,8 @@ def _decode_chunk(chunk, index, decomp_size, keys):
         if key is None:
             if decomp_size is None:
                 raise ValueError("unbekannter Schlüssel " + key_name)
-            return bytes(decomp_size)  # Inhalt nicht lesbar -> Nullen
-        for i in range(4):  # Blockindex fließt in den IV ein
+            return bytes(decomp_size)  # content not readable -> zeros
+        for i in range(4):  # block index goes into the IV
             iv[i] ^= (index >> (8 * i)) & 0xFF
         decrypted = _salsa20_xor(key, bytes(iv) + bytes(8 - len(iv)), chunk[pos + 1:])
         return _decode_chunk(decrypted, index, decomp_size, keys)
@@ -112,7 +112,7 @@ def _decode_chunk(chunk, index, decomp_size, keys):
 
 
 def load_tact_keys(path):
-    """Liest eine TACT-Keys-Liste im Format 'NAME SCHLÜSSEL' (wowdev/TACTKeys)."""
+    """Reads a TACT key list in the format 'NAME KEY' (wowdev/TACTKeys)."""
     keys = {}
     with open(path, encoding="utf8") as f:
         for line in f:
@@ -123,12 +123,12 @@ def load_tact_keys(path):
 
 
 class LocalStorage:
-    """Zugriff auf die Archive data.### über die lokalen .idx-Dateien."""
+    """Access to the data.### archives via the local .idx files."""
 
     def __init__(self, data_dir, keys=None):
         self.data_dir = data_dir
         self.keys = keys
-        self.index = {}  # 9-Byte-EKey-Präfix -> (archiv, offset, größe)
+        self.index = {}  # 9-byte EKey prefix -> (archive, offset, size)
         latest = {}
         for name in os.listdir(data_dir):
             if name.endswith(".idx") and len(name) == 14:
@@ -143,7 +143,7 @@ class LocalStorage:
             data = f.read()
         header_size = struct.unpack("<I", data[0:4])[0]
         key_size = data[14]  # version(2) bucket(1) extra(1) sizeBytes(1) offsetBytes(1) keyBytes(1)
-        pos = (8 + header_size + 0x0F) & ~0x0F  # Header wird auf 16 Byte aufgefüllt
+        pos = (8 + header_size + 0x0F) & ~0x0F  # header is padded to 16 bytes
         block_size = struct.unpack("<I", data[pos:pos + 4])[0]
         pos += 8
         end = pos + block_size
@@ -162,12 +162,12 @@ class LocalStorage:
             raise KeyError("EKey nicht im lokalen Speicher: " + ekey.hex())
         archive, offset, size = entry
         with open(os.path.join(self.data_dir, f"data.{archive:03d}"), "rb") as f:
-            f.seek(offset + 30)  # 30-Byte-Header vor jedem Eintrag
+            f.seek(offset + 30)  # 30-byte header before each entry
             return read_blte(f.read(size - 30), self.keys)
 
 
 class Encoding:
-    """CKey -> EKey über die Encoding-Datei (seitenweise, mit Binärsuche)."""
+    """CKey -> EKey via the encoding file (paged, with binary search)."""
 
     def __init__(self, data):
         if data[:2] != b"EN":
@@ -204,18 +204,18 @@ class Encoding:
 
 
 def parse_root(data):
-    """FileDataID -> CKey (bevorzugt enUS, ohne Low-Violence-Varianten)."""
+    """FileDataID -> CKey (preferring enUS, without low-violence variants)."""
     result, priority = {}, {}
     pos = 0
     if data[:4] == b"TSFM":
         header_size, version = struct.unpack("<II", data[4:12])
         if header_size in (0x18, 0x14) and version in (1, 2):
             pos = header_size
-        else:  # altes MFST ohne Header-Größe
+        else:  # old MFST without header size
             version = 0
             pos = 12
     else:
-        version = -1  # Root ohne Magic (sehr alt)
+        version = -1  # root without magic (very old)
     while pos < len(data):
         if version == 2:
             count, locale, unk1, unk2, unk3 = struct.unpack("<IIIIB", data[pos:pos + 17])
@@ -243,7 +243,7 @@ def parse_root(data):
 
 
 class Casc:
-    """Öffnet einen Build (Build-Key aus .build.info) und liefert Dateien per FileDataID."""
+    """Opens a build (build key from .build.info) and returns files by FileDataID."""
 
     def __init__(self, wow_dir, product, keys=None):
         self.wow_dir = wow_dir

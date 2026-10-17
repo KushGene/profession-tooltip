@@ -1,10 +1,10 @@
 -- Professions.lua
--- Berufsdefinitionen und Erkennung, welche Berufe der Charakter hat.
+-- Profession definitions and detection of which professions the character has.
 local _, ns = ...
 local L = ns.L
 
--- Reihenfolge = Anzeigereihenfolge im Tooltip und in den Einstellungen.
--- previewItem: typische Zutat des Berufs für die Vorschau im Einstellungsfenster
+-- Order = display order in the tooltip and in the settings.
+-- previewItem: typical reagent of the profession for the preview in the settings window
 ns.Professions = {
     { id = 171, key = "ALCHEMY",        icon = "Interface\\Icons\\Trade_Alchemy",          previewItem = 2447 },  -- Peacebloom
     { id = 164, key = "BLACKSMITHING",  icon = "Interface\\Icons\\Trade_BlackSmithing",    previewItem = 2840 },  -- Copper Bar
@@ -44,7 +44,7 @@ function ns.GetProfessionName(id)
     return name
 end
 
--- Ordnet einen Beruf aus GetProfessionInfo einer Skill-Line zu (bevorzugt per ID, sonst per Name)
+-- Maps a profession from GetProfessionInfo to a skill line (by ID if possible, otherwise by name)
 local function ResolveProfessionID(name, skillLine)
     if skillLine and byID[skillLine] then
         return skillLine
@@ -81,7 +81,7 @@ function ns.DetectProfessions()
     end
     for id in pairs(professions) do
         if not detected[id] then
-            changed = true -- Beruf verlernt
+            changed = true -- profession unlearned
         end
     end
     if changed then
@@ -101,14 +101,14 @@ function ns.HasProfession(id)
     return ns.char.professions[id] ~= nil
 end
 
--- Soll der Beruf im Tooltip erscheinen?
+-- Should the profession appear in the tooltip?
 function ns.IsProfessionShown(id)
     if ns.db.disabledProfessions[id] then return false end
     if ns.db.onlyOwnProfessions and not ns.HasProfession(id) then return false end
     return true
 end
 
--- Namen der eigenen Berufe, deren Fenster noch nie gescannt wurde
+-- Names of own professions whose window has never been scanned
 function ns.GetUnscannedProfessionNames()
     local names = {}
     for _, profession in ipairs(ns.Professions) do
@@ -127,7 +127,7 @@ end
 ns.RegisterEvent("PLAYER_LOGIN", ns.DetectProfessions)
 ns.RegisterEvent("SKILL_LINES_CHANGED", ns.DetectProfessions)
 
--- Neu gelerntes Rezept -> Tooltips neu aufbauen (IsPlayerSpell liefert es sofort)
+-- Newly learned recipe -> rebuild tooltips (IsPlayerSpell reports it right away)
 local function OnRecipeLearned()
     ns.Fire("DATA_CHANGED")
 end

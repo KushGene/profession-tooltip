@@ -1,11 +1,11 @@
 -- Characters.lua
--- Accountweite Übersicht der Charaktere (für "Bekannt bei: <Twink>").
--- Jeder Charakter legt beim Login und nach Scans eine Momentaufnahme ab:
+-- Account-wide overview of characters (for "Known by: <alt>").
+-- Each character stores a snapshot on login and after scans:
 --   ns.db.characters["Name-Realm"] = { name, class, professions = {...}, known = { [spellID] = true } }
 local _, ns = ...
 
 local playerKey
-local altIndex -- [spellID] = { "farbiger Name", ... } – nur andere Charaktere, bei Bedarf aufgebaut
+local altIndex -- [spellID] = { "colored name", ... } – other characters only, built on demand
 
 local function ColoredName(entry)
     local color = entry.class and C_ClassColor and C_ClassColor.GetClassColor(entry.class)
@@ -17,7 +17,7 @@ local function Snapshot()
     for spellID in pairs(ns.char.known) do
         known[spellID] = true
     end
-    -- Rezepte eigener Berufe, die ohne Scan per IsPlayerSpell erkannt werden
+    -- Recipes of own professions that IsPlayerSpell detects without a scan
     ns.ForEachRecipe(function(spellID, _, professionID)
         if not known[spellID] and ns.HasProfession(professionID) and IsPlayerSpell(spellID) then
             known[spellID] = true
@@ -35,7 +35,7 @@ local function Snapshot()
     }
 end
 
--- Momentaufnahmen zusammenfassen (Scan-Events kommen oft gehäuft)
+-- Coalesce snapshots (scan events often arrive in bursts)
 local snapshotPending = false
 local function RequestSnapshot()
     if snapshotPending or not playerKey then return end
@@ -63,13 +63,13 @@ local function BuildAltIndex()
     end
 end
 
--- Farbige Namen der Twinks, die dieses Rezept kennen (oder nil)
+-- Colored names of the alts that know this recipe (or nil)
 function ns.GetAltsKnowing(spellID)
     if not altIndex then BuildAltIndex() end
     return altIndex[spellID]
 end
 
--- Twinks, die das Rezept lernen könnten (Beruf vorhanden, Skill reicht, noch nicht gelernt)
+-- Alts that could learn the recipe (have the profession, enough skill, not learned yet)
 function ns.GetAltsAbleToLearn(spellID)
     local recipe, professionID = ns.GetRecipe(spellID)
     if not recipe then return nil end
@@ -85,7 +85,7 @@ function ns.GetAltsAbleToLearn(spellID)
     return names
 end
 
--- Für die Einstellungen: sortierte Liste { key, entry }
+-- For the settings: sorted list { key, entry }
 function ns.GetCharacters()
     local list = {}
     for key, entry in pairs(ns.db.characters) do

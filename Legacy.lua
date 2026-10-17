@@ -1,15 +1,15 @@
 -- Legacy.lua
--- Übergang von CookingTooltip/AlchemyTooltip: Einstellungen übernehmen, alte Addons deaktivieren.
+-- Migration from CookingTooltip/AlchemyTooltip: take over settings, disable the old addons.
 local _, ns = ...
 local L = ns.L
 
--- Addon-Name -> globale Einstellungstabelle
+-- Addon name -> global settings table
 local LEGACY_ADDONS = {
     { name = "CookingTooltip", settings = "CookingTooltipSettings" },
     { name = "AlchemyTooltip", settings = "AlchemyTooltipSettings" },
 }
 
--- Alte Einstellung -> neue Einstellung
+-- Old setting -> new setting
 local SETTING_MAP = {
     detailed = "detailed",
     showSkillUnknown = "showSkill",
@@ -18,7 +18,7 @@ local SETTING_MAP = {
     hideTrivialKnownOnShift = "hideTrivialKnownOnShift",
 }
 
--- Namen der alten Addons, die gerade geladen sind
+-- Names of the old addons that are currently loaded
 function ns.GetLoadedLegacyAddons()
     local loaded = {}
     for _, legacy in ipairs(LEGACY_ADDONS) do
@@ -29,7 +29,7 @@ function ns.GetLoadedLegacyAddons()
     return loaded
 end
 
--- Übernimmt die Einstellungen des ersten geladenen alten Addons. Rückgabe: true bei Erfolg
+-- Takes over the settings of the first loaded old addon. Returns: true on success
 function ns.ImportLegacySettings()
     for _, legacy in ipairs(LEGACY_ADDONS) do
         local old = _G[legacy.settings]

@@ -1,10 +1,10 @@
 -- Data/Alchemy.lua
--- Automatisch erzeugt von Tools/build_data.py aus dem Client (WOW-70450patch1.60.1_ForeverBeta).
--- Nicht von Hand bearbeiten, sondern das Skript erneut ausführen.
+-- Generated automatically by Tools/build_data.py from the client (WOW-70450patch1.60.1_ForeverBeta).
+-- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
--- [spellID] = { benötigterSkill (0 = unbekannt), "Fallback-Name", { itemID, Menge, ... },
---               hergestelltesItem (0 = keins), gelbAb, grünAb, grauAb }
+-- [spellID] = { requiredSkill (0 = unknown), "fallback name", { itemID, count, ... },
+--               createdItem (0 = none), yellowAt, greenAt, grayAt }
 ns.RegisterRecipes(171, {
     [2329] = { 0, "Elixir of Minor Strength", { 2449, 1, 765, 1, 3371, 1 }, 2454, 55, 75, 95 },
     [2365] = { 0, "Draught of Tongues", { 2449, 2, 785, 2, 3371, 1 }, 2460, 100, 120, 140 },

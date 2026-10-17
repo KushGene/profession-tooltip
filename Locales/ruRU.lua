@@ -13,7 +13,7 @@ L["OTHER_PROFESSIONS"] = "Также используется:"
 L["SECTION_KNOWN"] = "Изучено"
 L["SECTION_UNKNOWN"] = "Не изучено"
 
--- Einstellungen
+-- Settings
 L["SUBTITLE"] = "Показывает рецепты, в которых используется ингредиент, — для всех ваших профессий."
 L["OPEN_SETTINGS"] = "Открыть окно настроек"
 L["MINIMAP_TOOLTIP"] = "ЛКМ: открыть настройки"

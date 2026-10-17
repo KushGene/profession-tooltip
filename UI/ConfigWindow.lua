@@ -1,5 +1,5 @@
 -- UI/ConfigWindow.lua
--- Einstellungsfenster: Tabs links, Live-Vorschau rechts.
+-- Settings window: tabs on the left, live preview on the right.
 local _, ns = ...
 local L = ns.L
 local Widgets = ns.Widgets
@@ -19,7 +19,7 @@ local MAX_CHARACTER_ROWS = 6
 
 local window
 local columns = {}
-local Refresh -- forward declaration, definiert unten
+local Refresh -- forward declaration, defined below
 
 local function Option(key, label, desc, enabled, indent)
     return {
@@ -44,7 +44,7 @@ local function IsOnlyOwn()
     return ns.db.onlyOwnProfessions
 end
 
--- "Noch nicht gescannt: Alchimie, Kräuterkunde" oder nil
+-- "Not scanned yet: Alchemy, Herbalism" or nil
 local function GetScanNotice()
     local names = ns.GetUnscannedProfessionNames()
     if #names > 0 then
@@ -133,7 +133,7 @@ local function CreateProfessionRow(page, col, profession)
         local enabled = not ns.db.disabledProfessions[profession.id]
         local owned = ns.HasProfession(profession.id)
         row:SetChecked(enabled)
-        -- Nicht erlernte Berufe sind bei "Nur meine Berufe" ohnehin ausgeblendet -> abgedimmt
+        -- Unlearned professions are hidden anyway with "Only my professions" -> dimmed
         local active = enabled and (owned or not ns.db.onlyOwnProfessions)
         name:SetFontObject(active and "GameFontHighlight" or "GameFontDisable")
         icon:SetDesaturated(not active)
@@ -159,7 +159,7 @@ local function IsCraftedShown()
     return ns.db.showCraftedBy
 end
 
--- Eine Zeile der Twink-Liste: Name, Berufs-Icons, Löschen-Button
+-- One row of the alt list: name, profession icons, delete button
 local function CreateCharacterRow(page, col, index)
     local y = col.y - (index - 1) * 22
     local name = page:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -283,7 +283,7 @@ local function BuildGeneralTab(page)
     end
     col:Add(item, 150)
 
-    -- Übergang von CookingTooltip/AlchemyTooltip
+    -- Migration from CookingTooltip/AlchemyTooltip
     col:Header(L["SECTION_LEGACY"])
     col:Check(Option("legacyCheck", "OPT_LEGACY_CHECK", "OPT_LEGACY_CHECK_DESC"))
 
@@ -324,9 +324,9 @@ local TABS = {
 }
 
 -- ----------------------------------------------------------------------------
--- Vorschau
+-- Preview
 -- ----------------------------------------------------------------------------
--- Beispiel-Zutaten der Berufe, die im Tooltip angezeigt werden (sonst aller Berufe)
+-- Sample reagents of the professions shown in the tooltip (otherwise of all professions)
 local function GetPreviewItems()
     local items, seen = {}, {}
     local function Collect(onlyShown)
@@ -385,7 +385,7 @@ local function CreatePreview(parent)
     hint:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 2, -8)
     hint:SetText(L["PREVIEW_HINT"])
 
-    -- Hinweis, solange eigene Berufsfenster noch nicht gescannt wurden
+    -- Hint while own profession windows haven't been scanned yet
     local scanNotice = box:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     scanNotice:SetPoint("BOTTOMLEFT", emptyText, "TOPLEFT", 0, 8)
     scanNotice:SetPoint("BOTTOMRIGHT", emptyText, "TOPRIGHT", 0, 8)
@@ -395,7 +395,7 @@ local function CreatePreview(parent)
     tooltip:SetScale(0.9)
 
     function preview.Render()
-        -- Liste neu bestimmen (Filter/Berufe können sich geändert haben), aktuelles Item möglichst behalten
+        -- Rebuild the list (filters/professions may have changed), keep the current item if possible
         local items = GetPreviewItems()
         local index = IndexOf(items, preview.itemID) or 1
         local itemID = items[index]
@@ -426,7 +426,7 @@ local function CreatePreview(parent)
 end
 
 -- ----------------------------------------------------------------------------
--- Fenster
+-- Window
 -- ----------------------------------------------------------------------------
 local function CreateHeader(frame)
     local header = CreateFrame("Frame", nil, frame, "BackdropTemplate")
@@ -524,7 +524,7 @@ local function CreateWindow()
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
     Widgets.Backdrop(frame, { 0.05, 0.05, 0.06, 0.96 }, { 0.30, 0.30, 0.33, 1 })
-    tinsert(UISpecialFrames, "ProfessionTooltipConfigFrame") -- ESC schließt das Fenster
+    tinsert(UISpecialFrames, "ProfessionTooltipConfigFrame") -- ESC closes the window
 
     CreateHeader(frame)
     CreateTabs(frame)
@@ -563,7 +563,7 @@ end
 
 ns.On("SETTINGS_CHANGED", Refresh)
 ns.On("DATA_CHANGED", Refresh)
--- Vorschau live aktualisieren: Shift-Taste und nachgeladene Item-Daten
+-- Update the preview live: Shift key and item data loaded later
 local function RenderPreview()
     if window and window:IsShown() then
         window.preview.Render()

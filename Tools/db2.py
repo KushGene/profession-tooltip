@@ -1,11 +1,11 @@
-"""Leser für DB2-Tabellen im WDC5-Format mit Spaltennamen aus WoWDBDefs (.dbd).
+"""Reader for DB2 tables in WDC5 format with column names from WoWDBDefs (.dbd).
 
-Nutzung:
+Usage:
     table = read_table(db2_bytes, dbd_text)
-    for row in table.values():   # {ID: {"Spalte": Wert, ...}}
+    for row in table.values():   # {ID: {"column": value, ...}}
         ...
-Arrays werden als Liste geliefert. Abschnitte, deren Inhalt verschlüsselt und nicht lesbar
-war (mit Nullen gefüllt), werden übersprungen.
+Arrays are returned as lists. Sections whose content was encrypted and not readable
+(filled with zeros) are skipped.
 """
 import re
 import struct
@@ -23,7 +23,7 @@ class Column:
 
 
 def parse_dbd(text, layout_hash):
-    """Spalten (in Record-Reihenfolge) für den passenden LAYOUT-Block."""
+    """Columns (in record order) for the matching LAYOUT block."""
     column_types = {}
     blocks = text.replace("\r", "").split("\n\n")
     for line in blocks[0].splitlines()[1:]:
@@ -87,7 +87,7 @@ def read_table(data, dbd_text):
     for _ in range(section_count):
         sections.append(struct.unpack("<Q8I", data[pos:pos + 40]))
         pos += 40
-    pos += 4 * field_count  # field_structure (Größe/Position) – steht auch in storage_info
+    pos += 4 * field_count  # field_structure (size/position) – also in storage_info
 
     storage = []
     for _ in range(storage_info_size // 24):
@@ -96,7 +96,7 @@ def read_table(data, dbd_text):
     pallet_start = pos
     common_start = pallet_start + pallet_size
 
-    # Zusatzdaten-Offsets je Feld (Palette bzw. Common-Data)
+    # Extra data offsets per field (pallet or common data)
     pallet_offsets, common_maps = [], []
     pallet_pos, common_pos = pallet_start, common_start
     for (_, _, extra_size, storage_type, val1, _, _) in storage:
@@ -112,7 +112,7 @@ def read_table(data, dbd_text):
         common_maps.append(common)
 
     sparse = bool(flags & 1)
-    # Für Strings: virtuelle Lage aller Record-Blöcke, danach aller String-Tabellen
+    # For strings: virtual position of all record blocks, followed by all string tables
     total_record_bytes = sum(s[2] * record_size for s in sections)
     string_tables, virtual_string = [], total_record_bytes
     for s in sections:
@@ -146,7 +146,7 @@ def read_table(data, dbd_text):
             pos += relationship_size
         sparse_ids = list(struct.unpack(f"<{offset_map_count}I", data[pos:pos + 4 * offset_map_count]))
 
-        # Verschlüsselter, nicht lesbarer Abschnitt -> komplett genullt
+        # Encrypted, unreadable section -> completely zeroed
         if key_hash and not any(data[record_area:records_blob_end]):
             virtual_record += count * record_size
             continue
@@ -159,7 +159,7 @@ def read_table(data, dbd_text):
                 record_offset = record_area + record_index * record_size
                 record_id = ids[record_index] if ids else None
             record = data[record_offset:record_offset + (record_size if not sparse else _size)]
-            if record_id is None:  # ID steht im Record (id_index) – vor Common-Data-Feldern lesen
+            if record_id is None:  # ID is in the record (id_index) – read it before common data fields
                 id_offset_bits, id_size_bits, _, id_storage = storage[id_index][:4]
                 if id_storage == STORAGE_NONE:
                     record_id = int.from_bytes(record[id_offset_bits >> 3:(id_offset_bits >> 3) + 4], "little")
@@ -223,8 +223,8 @@ def read_table(data, dbd_text):
 
 
 def _read_sparse_record(data, offset, columns):
-    """Sparse-Tabellen (z. B. ItemSparse): Felder liegen unkomprimiert hintereinander,
-    Strings sind direkt eingebettet – daher sequenziell lesen."""
+    """Sparse tables (e.g. ItemSparse): fields are stored uncompressed one after another,
+    strings are embedded directly – so read sequentially."""
     row = {}
     pos = offset
     for column in columns:

@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
-"""Erzeugt die Data/*.lua-Dateien von ProfessionTooltip aus dem installierten WoW-Forever-Client.
+"""Generates ProfessionTooltip's Data/*.lua files from the installed WoW Forever client.
 
-Hauptquelle sind die DB2-Tabellen des Clients (gelesen über casc.py/db2.py):
-  SkillLineAbility  Rezept -> Beruf, Farbstufen (gelb/grau)
-  SpellReagents     Zutaten und Mengen
-  SpellEffect       hergestelltes Item
-  SpellName         englischer Rezeptname (Fallback im Addon)
-  ItemSparse + ItemEffect + ItemXItemEffect   benötigter Skill laut Rezept-Item
+The main source is the client's DB2 tables (read via casc.py/db2.py):
+  SkillLineAbility  recipe -> profession, color thresholds (yellow/gray)
+  SpellReagents     reagents and counts
+  SpellEffect       crafted item
+  SpellName         English recipe name (fallback in the addon)
+  ItemSparse + ItemEffect + ItemXItemEffect   required skill according to the recipe item
 
-Optionale Web-Ergänzungen (entfallen mit --offline):
-  Lehrer-Scans   benötigter Skill für Lehrer-Rezepte, vom Addon beim Besuch eines Lehrers erfasst
-                 (SavedVariables im WoW-Ordner)
-  foreverdb.net  benötigter Skill für Lehrer-Rezepte (steht nicht im Client); ohne Treffer
-                 bleibt er unbekannt (0) – es wird nichts geschätzt
-  seemeta.com    Liste der in Forever erhältlichen Rezepte, um Season-of-Discovery-Rezepte
-                 auszufiltern, die zwar im Client stecken, in Forever aber nicht erlernbar sind
+Optional web additions (skipped with --offline):
+  Trainer scans  required skill for trainer recipes, recorded by the addon when visiting a trainer
+                 (SavedVariables in the WoW folder)
+  foreverdb.net  required skill for trainer recipes (not in the client); without a match
+                 it stays unknown (0) – nothing is guessed
+  seemeta.com    list of recipes available in Forever, to filter out Season of Discovery recipes
+                 that are in the client but cannot be learned in Forever
 
-Benötigt aus dem Netz außerdem (gecacht): Tabellendefinitionen von WoWDBDefs und die
-öffentliche TACT-Key-Liste (zum Entschlüsseln neuer Inhalte).
+Also fetched from the web (cached): table definitions from WoWDBDefs and the
+public TACT key list (to decrypt new content).
 
-Aufruf:
-  python3 Tools/build_data.py              # normaler Lauf
-  python3 Tools/build_data.py --refresh    # Definitionen, Keys und Web-Listen neu laden
-  python3 Tools/build_data.py --offline    # nur Client-Daten (+ vorhandener Cache)
-  python3 Tools/build_data.py --dry-run    # nur prüfen: zeigt, was sich ändern würde
+Usage:
+  python3 Tools/build_data.py              # normal run
+  python3 Tools/build_data.py --refresh    # reload definitions, keys and web lists
+  python3 Tools/build_data.py --offline    # client data only (+ existing cache)
+  python3 Tools/build_data.py --dry-run    # check only: shows what would change
 """
 import argparse
 import glob
@@ -40,9 +40,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import casc  # noqa: E402
 import db2  # noqa: E402
 
-PRODUCT = "wow_classic_beta"  # WoW: Forever; nach dem Launch ggf. anpassen (--product)
+PRODUCT = "wow_classic_beta"  # WoW: Forever; adjust after launch if needed (--product)
 
-# Skill-Line -> (Dateiname, seemeta/foreverdb-Name)
+# Skill line -> (file name, seemeta/foreverdb name)
 PROFESSIONS = {
     171: ("Alchemy", "alchemy"),
     164: ("Blacksmithing", "blacksmithing"),
@@ -60,8 +60,8 @@ PROFESSIONS = {
 TABLES = ["SkillLineAbility", "SpellReagents", "SpellEffect", "SpellName",
           "ItemSparse", "ItemEffect", "ItemXItemEffect"]
 
-# Ohne Web-Liste: Classic-Rezepte (< 30000) und Forever-eigene Rezepte (>= 1229000) gelten als
-# erhältlich; dazwischen liegen v. a. Season-of-Discovery-Rezepte.
+# Without a web list: Classic recipes (< 30000) and Forever's own recipes (>= 1229000) count as
+# available; in between are mainly Season of Discovery recipes.
 CLASSIC_MAX_SPELL = 30000
 FOREVER_MIN_SPELL = 1229000
 
@@ -76,7 +76,7 @@ TACT_KEYS_URL = "https://raw.githubusercontent.com/wowdev/TACTKeys/master/WoW.tx
 
 
 # ----------------------------------------------------------------------------
-# Web-Cache
+# Web cache
 # ----------------------------------------------------------------------------
 class WebCache:
     def __init__(self, cache_dir, refresh, offline):
@@ -84,7 +84,7 @@ class WebCache:
         os.makedirs(cache_dir, exist_ok=True)
 
     def get(self, url, key, max_age=7 * DAY):
-        """Datei aus dem Cache bzw. neu laden; None, wenn offline und nicht vorhanden."""
+        """Load a file from the cache or fetch it again; None if offline and not present."""
         path = os.path.join(self.cache_dir, key)
         fresh = os.path.exists(path) and time.time() - os.path.getmtime(path) < max_age
         if os.path.exists(path) and (self.offline or (fresh and not self.refresh)):
@@ -108,7 +108,7 @@ class WebCache:
 
 
 # ----------------------------------------------------------------------------
-# Client-Daten
+# Client data
 # ----------------------------------------------------------------------------
 def load_client_tables(wow_dir, product, web):
     keys_path = os.path.join(web.cache_dir, "tactkeys.txt")
@@ -125,7 +125,7 @@ def load_client_tables(wow_dir, product, web):
 
 
 def recipe_items(tables):
-    """Rezept-Items ("Recipe: ...") -> (gelehrter Spell, benötigter Skill)."""
+    """Recipe items ("Recipe: ...") -> (taught spell, required skill)."""
     effects, items = tables["ItemEffect"], tables["ItemSparse"]
     result = {}
     for link in tables["ItemXItemEffect"].values():
@@ -144,16 +144,16 @@ def created_items(tables):
 
 
 # ----------------------------------------------------------------------------
-# Web-Ergänzungen
+# Web additions
 # ----------------------------------------------------------------------------
 def foreverdb_skills(web, profession):
-    """(item|spell, id) -> benötigter Skill, laut foreverdb (enthält auch Lehrer-Rezepte)."""
+    """(item|spell, id) -> required skill, according to foreverdb (includes trainer recipes)."""
     skills = {}
     for page in range(1, 40):
         body = web.get(f"https://foreverdb.net/profession/{profession}?p={page}", f"fdb_{profession}_{page}")
         if not body:
             break
-        # Eine Seite kann mehrere Listen enthalten (z. B. "Best in Slot" vor der Rezeptliste)
+        # A page can contain several lists (e.g. "Best in Slot" before the recipe list)
         entries = []
         for ul in re.findall(r'<ul class="ssr-list">(.*?)</ul>', body, re.S):
             entries += re.findall(r"<li>(.*?)</li>", ul)
@@ -168,7 +168,7 @@ def foreverdb_skills(web, profession):
 
 
 def seemeta_available(web, profession):
-    """Menge der (item|spell, id), die seemeta als in Forever erhältlich führt (oder None)."""
+    """Set of (item|spell, id) that seemeta lists as available in Forever (or None)."""
     body = web.get(f"https://seemeta.com/en/wow-forever/professions/{profession}", f"seemeta_{profession}")
     if not body:
         return None
@@ -177,13 +177,13 @@ def seemeta_available(web, profession):
 
 
 # ----------------------------------------------------------------------------
-# Lehrer-Scans aus dem Spiel (SavedVariables)
+# Trainer scans from the game (SavedVariables)
 # ----------------------------------------------------------------------------
 def trainer_scans(wow_dir):
-    """Vom Addon erfasste Lehrer-Stufen aller Accounts: {spellID: Stufe}.
+    """Trainer ranks recorded by the addon across all accounts: {spellID: rank}.
 
-    Das Addon speichert sie in WTF/Account/<Account>/SavedVariables/ProfessionTooltip.lua.
-    Bei mehreren Werten für ein Rezept gilt der niedrigste."""
+    The addon stores them in WTF/Account/<Account>/SavedVariables/ProfessionTooltip.lua.
+    If a recipe has several values, the lowest one wins."""
     pattern = os.path.join(wow_dir, "_*_", "WTF", "Account", "*", "SavedVariables", "ProfessionTooltip.lua")
     skills, files = {}, 0
     for path in glob.glob(pattern):
@@ -200,10 +200,10 @@ def trainer_scans(wow_dir):
 
 
 # ----------------------------------------------------------------------------
-# Vergleich mit den vorhandenen Daten
+# Comparison with the existing data
 # ----------------------------------------------------------------------------
 def read_data_file(path):
-    """Vorhandene Data-Datei -> {spellID: (skill, name, reagents, created, levels)}"""
+    """Existing data file -> {spellID: (skill, name, reagents, created, levels)}"""
     if not os.path.exists(path):
         return {}
     result = {}
@@ -240,7 +240,7 @@ def compare(old, new):
     return stats
 
 
-# Farben nur im Terminal (nicht in Logdateien); NO_COLOR schaltet sie ab
+# Colors only in a terminal (not in log files); NO_COLOR turns them off
 USE_COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
 DISPLAY_NAMES = {
     "Alchemy": "Alchimie", "Blacksmithing": "Schmiedekunst", "Enchanting": "Verzauberkunst",
@@ -322,7 +322,7 @@ def print_report(rows, total_changes, item_count, dry_run):
 
 
 # ----------------------------------------------------------------------------
-# Ausgabe
+# Output
 # ----------------------------------------------------------------------------
 def lua_string(text):
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
@@ -331,12 +331,12 @@ def lua_string(text):
 def write_data_file(path, file_name, skill_line, build_name, recipes):
     lines = [
         f"-- Data/{file_name}.lua",
-        f"-- Automatisch erzeugt von Tools/build_data.py aus dem Client ({build_name}).",
-        "-- Nicht von Hand bearbeiten, sondern das Skript erneut ausführen.",
+        f"-- Generated automatically by Tools/build_data.py from the client ({build_name}).",
+        "-- Do not edit by hand; run the script again instead.",
         "local _, ns = ...",
         "",
-        "-- [spellID] = { benötigterSkill (0 = unbekannt), \"Fallback-Name\", { itemID, Menge, ... },",
-        "--               hergestelltesItem (0 = keins), gelbAb, grünAb, grauAb }",
+        "-- [spellID] = { requiredSkill (0 = unknown), \"fallback name\", { itemID, count, ... },",
+        "--               createdItem (0 = none), yellowAt, greenAt, grayAt }",
         f"ns.RegisterRecipes({skill_line}, {{",
     ]
     for spell_id, recipe in sorted(recipes.items(), key=lambda kv: (kv[1]["skill"], kv[0])):
@@ -352,10 +352,10 @@ def write_data_file(path, file_name, skill_line, build_name, recipes):
 def write_recipe_items(path, build_name, items):
     lines = [
         "-- Data/RecipeItems.lua",
-        f"-- Automatisch erzeugt von Tools/build_data.py aus dem Client ({build_name}).",
+        f"-- Generated automatically by Tools/build_data.py from the client ({build_name}).",
         "local _, ns = ...",
         "",
-        "-- [Rezept-Item] = gelehrter Spell",
+        "-- [recipe item] = taught spell",
         "ns.RegisterRecipeItems({",
     ]
     for item_id, spell_id in sorted(items.items()):
@@ -376,8 +376,8 @@ def main():
     tools_dir = os.path.dirname(os.path.abspath(__file__))
     addon_dir = os.path.dirname(tools_dir)
     data_dir = os.path.join(addon_dir, "Data")
-    # Liegt das Addon im Spiel (.../World of Warcraft/_classic_beta_/Interface/AddOns/ProfessionTooltip),
-    # ergibt sich der WoW-Ordner von selbst; im Repository über --wow-dir oder WOW_DIR angeben.
+    # If the addon sits in the game (.../World of Warcraft/_classic_beta_/Interface/AddOns/ProfessionTooltip),
+    # the WoW folder follows from that; in the repository, pass --wow-dir or set WOW_DIR.
     default_wow_dir = os.environ.get("WOW_DIR") or os.path.abspath(os.path.join(addon_dir, "..", "..", "..", ".."))
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -433,7 +433,7 @@ def main():
             low, high = ability["TrivialSkillLineRankLow"], ability["TrivialSkillLineRankHigh"]
             levels = (low, (low + high + 1) // 2, high) if 0 < low <= high else None
 
-            # Quellen der Lernstufe, in dieser Reihenfolge; ohne Treffer 0 = unbekannt (nichts schätzen)
+            # Sources of the learning rank, in this order; without a match 0 = unknown (don't guess)
             fdb_skill = next((fdb[r] for r in refs if r in fdb), None)
             if spell_id in item_ranks:
                 skill, source = item_ranks[spell_id], "Rezept-Item"

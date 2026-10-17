@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Zieht den Abschnitt einer Version aus CHANGELOG.md für das Release ("What's new").
+"""Extracts a version's section from CHANGELOG.md for the release ("What's new").
 
-Aufruf: extract_changelog.py <tag> [CHANGELOG.md] [Ausgabedatei]
+Usage: extract_changelog.py <tag> [CHANGELOG.md] [output file]
 
-  v1.1.0              -> Abschnitt "## 1.1.0"; fehlt er, bricht das Release ab
-  v1.1.0-beta1(-...)  -> "## 1.1.0-beta1", sonst "## 1.1.0", sonst "## Unreleased"
+  v1.1.0              -> section "## 1.1.0"; if it is missing, the release aborts
+  v1.1.0-beta1(-...)  -> "## 1.1.0-beta1", else "## 1.1.0", else "## Unreleased"
 """
 import re
 import sys
@@ -31,7 +31,7 @@ def main():
     candidates = [version]
     if prerelease:
         base = version.split("-", 1)[0]
-        prerelease_name = "-".join(version.split("-")[:2])  # z. B. 1.1.0-beta1 aus 1.1.0-beta1-cfonly
+        prerelease_name = "-".join(version.split("-")[:2])  # e.g. 1.1.0-beta1 from 1.1.0-beta1-cfonly
         candidates = list(dict.fromkeys([version, prerelease_name, base, "Unreleased"]))
 
     with open(source, encoding="utf8") as f:

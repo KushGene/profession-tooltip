@@ -1,10 +1,10 @@
 -- Data/Tailoring.lua
--- Automatisch erzeugt von Tools/build_data.py aus dem Client (WOW-70450patch1.60.1_ForeverBeta).
--- Nicht von Hand bearbeiten, sondern das Skript erneut ausführen.
+-- Generated automatically by Tools/build_data.py from the client (WOW-70450patch1.60.1_ForeverBeta).
+-- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
--- [spellID] = { benötigterSkill (0 = unbekannt), "Fallback-Name", { itemID, Menge, ... },
---               hergestelltesItem (0 = keins), gelbAb, grünAb, grauAb }
+-- [spellID] = { requiredSkill (0 = unknown), "fallback name", { itemID, count, ... },
+--               createdItem (0 = none), yellowAt, greenAt, grayAt }
 ns.RegisterRecipes(197, {
     [7636] = { 0, "Green Woolen Robe", { 2997, 3, 2321, 2, 2605, 1 }, 6243, 90, 108, 125 },
     [8778] = { 0, "Boots of Darkness", { 4305, 3, 2319, 2, 6048, 1, 2321, 2 }, 7027, 135, 150, 165 },

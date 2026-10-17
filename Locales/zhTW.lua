@@ -13,7 +13,7 @@ L["OTHER_PROFESSIONS"] = "也用於："
 L["SECTION_KNOWN"] = "已學會"
 L["SECTION_UNKNOWN"] = "未學會"
 
--- Einstellungen
+-- Settings
 L["SUBTITLE"] = "顯示材料用於哪些配方——適用於你的所有專業。"
 L["OPEN_SETTINGS"] = "開啟設定視窗"
 L["MINIMAP_TOOLTIP"] = "左鍵：開啟設定"

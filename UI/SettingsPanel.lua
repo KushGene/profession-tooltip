@@ -1,5 +1,5 @@
 -- UI/SettingsPanel.lua
--- Eintrag unter Optionen -> AddOns. Verweist auf das eigentliche Einstellungsfenster.
+-- Entry under Options -> AddOns. Points to the actual settings window.
 local _, ns = ...
 local L = ns.L
 

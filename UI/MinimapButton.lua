@@ -1,10 +1,10 @@
 -- UI/MinimapButton.lua
--- Minimap-Button im LibDBIcon-Stil: rastet am Minimap-Rand ein, auch während des Ziehens.
+-- Minimap button in LibDBIcon style: snaps to the minimap edge, even while dragging.
 local _, ns = ...
 local L = ns.L
 
--- Ecken je Minimap-Form: true = runde Ecke (Reihenfolge wie LibDBIcon:
--- oben-rechts, oben-links, unten-rechts, unten-links)
+-- Corners per minimap shape: true = round corner (same order as LibDBIcon:
+-- top-right, top-left, bottom-right, bottom-left)
 local MINIMAP_SHAPES = {
     ["ROUND"] = { true, true, true, true },
     ["SQUARE"] = { false, false, false, false },

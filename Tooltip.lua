@@ -1,19 +1,19 @@
 -- Tooltip.lua
--- Baut die Tooltip-Zeilen für ein Item. Bis zu drei Abschnitte:
---   1. Rezept-Item ("Recipe: ...")  – gelernt / lernbar / Skill zu niedrig   (Extras)
---   2. Hergestelltes Item            – aus welchem Rezept, mit Zutaten        (Extras)
---   3. Zutat                         – welche Rezepte sie verwenden            (Kernfunktion)
--- Fertige Zeilen werden pro Item und Shift-Zustand gecacht, da Tooltips (z. B. in Taschen)
--- sehr häufig neu aufgebaut werden.
+-- Builds the tooltip lines for an item. Up to three sections:
+--   1. Recipe item ("Recipe: ...")  – learned / learnable / skill too low     (extras)
+--   2. Crafted item                  – from which recipe, with reagents      (extras)
+--   3. Reagent                       – which recipes use it                  (core feature)
+-- Finished lines are cached per item and Shift state, since tooltips (e.g. in bags)
+-- are rebuilt very often.
 local _, ns = ...
 local L = ns.L
 
 local TRIVIAL = 3
 local DIFFICULTY_COLORS = {
     [0] = "ffff8000", -- orange
-    [1] = "ffffff00", -- gelb
-    [2] = "ff40c040", -- grün
-    [3] = "ff808080", -- grau
+    [1] = "ffffff00", -- yellow
+    [2] = "ff40c040", -- green
+    [3] = "ff808080", -- gray
 }
 local COLOR_UNKNOWN = "ffaaaaaa"
 local COLOR_HINT = "ff888888"
@@ -24,13 +24,13 @@ local ICON_CROP = ":0:0:64:64:5:59:5:59|t"
 local SECTION_KNOWN = "  |TInterface\\Buttons\\UI-CheckBox-Check:14:14|t"
 local SECTION_UNKNOWN = "  |TInterface\\Buttons\\UI-GroupLoot-Pass-Up:14:14|t"
 local MAX_CRAFTED_RECIPES = 3
-local VOLATILE_CACHE_SECONDS = 3 -- Vorrat und Preise ändern sich -> nur kurz cachen
+local VOLATILE_CACHE_SECONDS = 3 -- stock and prices change -> cache only briefly
 local UNLIMITED = math.huge
 
 -- ----------------------------------------------------------------------------
 -- Cache
 -- ----------------------------------------------------------------------------
-local cache = {} -- [itemID] = { [1|2] = { lines = {...} | false, time = n } }  (2 = mit Shift)
+local cache = {} -- [itemID] = { [1|2] = { lines = {...} | false, time = n } }  (2 = with Shift)
 
 local function ClearCache()
     wipe(cache)
@@ -46,7 +46,7 @@ ns.RegisterEvent("BAG_UPDATE_DELAYED", function()
     if ns.db.showStockCount then ClearCache() end
 end)
 
--- Nachgeladene Itemnamen (Zutatenliste bei hergestellten Items) -> gebündelt neu aufbauen
+-- Item names loaded later (reagent list of crafted items) -> rebuild in one batch
 local itemInfoPending = false
 ns.RegisterEvent("GET_ITEM_INFO_RECEIVED", function()
     if not (ns.db.showCraftedBy and ns.db.showCraftedReagents) or itemInfoPending then return end
@@ -58,7 +58,7 @@ ns.RegisterEvent("GET_ITEM_INFO_RECEIVED", function()
 end)
 
 -- ----------------------------------------------------------------------------
--- Hilfsfunktionen
+-- Helpers
 -- ----------------------------------------------------------------------------
 local function Icon(profession, size)
     return "|T" .. profession.icon .. ":" .. size .. ":" .. size .. ICON_CROP
@@ -83,7 +83,7 @@ local function FormatMoney(copper)
     return math.floor(copper / 10000) .. "g"
 end
 
--- Auktionspreis über Auctionator (nil, wenn nicht verfügbar)
+-- Auction price via Auctionator (nil if not available)
 local function GetAuctionPrice(itemID)
     local api = Auctionator and Auctionator.API and Auctionator.API.v1
     if not (api and api.GetAuctionPriceByItemID) then return nil end
@@ -96,24 +96,24 @@ function ns.IsAuctionatorAvailable()
     return api ~= nil and api.GetAuctionPriceByItemID ~= nil
 end
 
--- Soll ein ungelerntes Rezept laut Filter erscheinen?
+-- Should an unlearned recipe appear according to the filter?
 local function PassesUnknownFilter(spellID, rank)
     local filter = ns.db.unknownFilter
     if filter == "all" or not rank then return true end
     local recipe = ns.GetRecipe(spellID)
     if filter == "learnable" then
         local skill = ns.GetRequiredSkill(spellID, recipe)
-        return skill == 0 or skill <= rank -- unbekannte Lernstufe nicht ausfiltern
+        return skill == 0 or skill <= rank -- don't filter out an unknown learning rank
     end
-    -- "noGray": Rezepte, die für mich bereits grau wären, ausblenden
+    -- "noGray": hide recipes that would already be gray for me
     local grayAt = ns.GetGrayAt(recipe)
     return not grayAt or rank < grayAt
 end
 
 -- ----------------------------------------------------------------------------
--- Zeilen
+-- Lines
 -- ----------------------------------------------------------------------------
--- Berufszeile je nach Design-Einstellungen, z. B. "[Icon] Lederverarbeitung  70/150 · 16/82 gelernt"
+-- Profession line depending on the design settings, e.g. "[Icon] Leatherworking  70/150 · 16/82 learned"
 local function FormatHeader(profession, rank, maxRank, knownCount, totalCount)
     local db = ns.db
     local text
@@ -153,9 +153,9 @@ local function FormatRecipeLine(spellID, itemID, difficulty, professionRank)
         text = text .. " " .. Colorize(crafts > 0 and "ff80c0ff" or COLOR_HINT, string.format(L["ENOUGH_FOR"], crafts))
     end
 
-    local skill = ns.GetRequiredSkill(spellID, recipe) -- 0 = unbekannt (Lehrer-Rezept ohne Daten)
+    local skill = ns.GetRequiredSkill(spellID, recipe) -- 0 = unknown (trainer recipe without data)
     if skill > 0 and db.showSkill and (not difficulty or db.showSkillKnown) then
-        -- Rot, wenn die eigene Berufsstufe für ein ungelerntes Rezept noch nicht reicht
+        -- Red if the own profession rank isn't high enough yet for an unlearned recipe
         local tooHigh = not difficulty and professionRank and professionRank < skill
         text = text .. " " .. Colorize(tooHigh and COLOR_TOO_HIGH or COLOR_UNKNOWN, "(" .. skill .. ")")
     end
@@ -178,7 +178,7 @@ local function FormatRecipeLine(spellID, itemID, difficulty, professionRank)
 end
 
 -- ----------------------------------------------------------------------------
--- Abschnitt 1: Rezept-Item
+-- Section 1: recipe item
 -- ----------------------------------------------------------------------------
 local function AddRecipeItemSection(lines, itemID)
     local spellID = ns.GetSpellTaughtBy(itemID)
@@ -214,7 +214,7 @@ local function AddRecipeItemSection(lines, itemID)
 end
 
 -- ----------------------------------------------------------------------------
--- Abschnitt 2: Hergestelltes Item
+-- Section 2: crafted item
 -- ----------------------------------------------------------------------------
 local function AddCraftedSection(lines, itemID)
     local spells = ns.GetRecipesCreating(itemID)
@@ -247,15 +247,15 @@ local function AddCraftedSection(lines, itemID)
 end
 
 -- ----------------------------------------------------------------------------
--- Abschnitt 3: Zutat
+-- Section 3: reagent
 -- ----------------------------------------------------------------------------
--- Fügt die Zeilen eines angezeigten Berufs an. Rückgabe: wantShiftHint, hasKnown
+-- Appends the lines of a displayed profession. Returns: wantShiftHint, hasKnown
 local function AddProfessionGroup(lines, itemID, professionID, spells, shift)
     local db = ns.db
     local profession = ns.GetProfession(professionID)
     local rank, maxRank = ns.GetProfessionRank(professionID)
 
-    local difficulties = {} -- [spellID] = Schwierigkeit, nur für gelernte Rezepte
+    local difficulties = {} -- [spellID] = difficulty, learned recipes only
     local known, unknown = {}, {}
     local hasSkillupKnown = false
     for _, spellID in ipairs(spells) do
@@ -289,7 +289,7 @@ local function AddProfessionGroup(lines, itemID, professionID, spells, shift)
         end
     end
 
-    -- Gelernte Rezepte: Skillups zuerst, dann höchster Skill, dann Spell-ID (stabil)
+    -- Learned recipes: skill-ups first, then highest skill, then spell ID (stable)
     table.sort(known, function(a, b)
         local trivialA, trivialB = difficulties[a] == TRIVIAL, difficulties[b] == TRIVIAL
         if trivialA ~= trivialB then
@@ -355,8 +355,8 @@ local function AddIngredientSection(lines, itemID, shift)
     if not spells then return end
     local db = ns.db
 
-    -- Die Liste ist nach Beruf sortiert -> in Gruppen aufteilen.
-    -- Fremde Berufe (nicht erlernt, aber nicht abgewählt) erscheinen nur als Icon.
+    -- The list is sorted by profession -> split it into groups.
+    -- Other professions (not learned, but not deselected) only appear as an icon.
     local groups, order = {}, {}
     local others, isOther = {}, {}
     for _, spellID in ipairs(spells) do
@@ -383,7 +383,7 @@ local function AddIngredientSection(lines, itemID, shift)
         end
         local wantHint, hasKnown = AddProfessionGroup(lines, itemID, professionID, groups[professionID], shift)
         wantShiftHint = wantShiftHint or wantHint
-        -- Hinweis nur, solange für einen eigenen Beruf weder Scan noch IsPlayerSpell etwas gefunden hat
+        -- Hint only while neither a scan nor IsPlayerSpell has found anything for an own profession
         if ns.HasProfession(professionID) and not ns.char.scanned[professionID] and not hasKnown then
             wantScanHint = true
         end
@@ -409,7 +409,7 @@ local function AddIngredientSection(lines, itemID, shift)
 end
 
 -- ----------------------------------------------------------------------------
--- Zusammenbau
+-- Assembly
 -- ----------------------------------------------------------------------------
 local function BuildLines(itemID, shift)
     local db = ns.db
@@ -421,7 +421,7 @@ local function BuildLines(itemID, shift)
         end
         add(lines, ...)
         if #lines == before + 1 and lines[#lines] == " " then
-            lines[#lines] = nil -- Abschnitt war leer -> Leerzeile wieder entfernen
+            lines[#lines] = nil -- section was empty -> remove the blank line again
         end
     end
     if db.showRecipeItemInfo then
@@ -434,7 +434,7 @@ local function BuildLines(itemID, shift)
     return #lines > 0 and lines or false
 end
 
--- Fügt die Zeilen an einen Tooltip an. Rückgabe: true, wenn etwas angefügt wurde.
+-- Appends the lines to a tooltip. Returns: true if anything was appended.
 function ns.AddTooltipLines(tooltip, itemID)
     if not itemID then return false end
     local slot = IsShiftKeyDown() and 2 or 1
@@ -458,7 +458,7 @@ function ns.AddTooltipLines(tooltip, itemID)
     return true
 end
 
--- Shift ändert den Inhalt -> offenen Item-Tooltip sofort neu aufbauen
+-- Shift changes the content -> rebuild the open item tooltip immediately
 local canRefresh = GameTooltip.RefreshData and GameTooltip.IsTooltipType
 ns.RegisterEvent("MODIFIER_STATE_CHANGED", function(_, key)
     if not canRefresh or (key ~= "LSHIFT" and key ~= "RSHIFT") then return end

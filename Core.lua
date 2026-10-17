@@ -1,18 +1,18 @@
 -- Core.lua
--- Namespace, Event-Bus, interne Nachrichten, SavedVariables und kleine Hilfsfunktionen.
+-- Namespace, event bus, internal messages, SavedVariables and small helpers.
 local addonName, ns = ...
 
 ns.name = addonName
 ns.version = (C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version")) or ""
 if ns.version:find("@", 1, true) then
-    ns.version = "dev" -- direkt aus dem Repository geladen (Packager hat die Version noch nicht eingesetzt)
+    ns.version = "dev" -- loaded straight from the repository (the packager hasn't filled in the version yet)
 else
-    ns.version = ns.version:gsub("^v", "") -- der Packager setzt den Tag ein, z. B. "v1.0.0"
+    ns.version = ns.version:gsub("^v", "") -- the packager fills in the tag, e.g. "v1.0.0"
 end
 ns.ICON = "Interface\\Icons\\INV_Scroll_03"
 
 -- ----------------------------------------------------------------------------
--- Event-Bus (WoW-Events) und interne Nachrichten
+-- Event bus (WoW events) and internal messages
 -- ----------------------------------------------------------------------------
 local eventFrame = CreateFrame("Frame")
 local eventHandlers = {}
@@ -22,7 +22,7 @@ function ns.RegisterEvent(event, handler)
     if not list then
         list = {}
         eventHandlers[event] = list
-        -- pcall: unbekannte Events werfen auf der Retail-Engine einen Fehler
+        -- pcall: unknown events throw an error on the retail engine
         pcall(eventFrame.RegisterEvent, eventFrame, event)
     end
     list[#list + 1] = handler
@@ -37,9 +37,9 @@ end)
 
 local messageHandlers = {}
 
--- Interne Nachrichten:
---   SETTINGS_CHANGED     eine Einstellung wurde geändert
---   DATA_CHANGED         gescannte Rezepte oder Berufsstufen haben sich geändert
+-- Internal messages:
+--   SETTINGS_CHANGED     a setting was changed
+--   DATA_CHANGED         scanned recipes or profession ranks have changed
 function ns.On(message, handler)
     local list = messageHandlers[message]
     if not list then
@@ -58,51 +58,51 @@ function ns.Fire(message, ...)
 end
 
 -- ----------------------------------------------------------------------------
--- Einstellungen
+-- Settings
 -- ----------------------------------------------------------------------------
--- Accountweit (ProfessionTooltipDB): Darstellungseinstellungen
--- Pro Charakter (ProfessionTooltipCharDB): gelernte Rezepte und Berufsstufen
--- Standardwerte für die Erstinstallation: nur die Kernfunktion ist aktiv, alle Extras sind aus.
+-- Account-wide (ProfessionTooltipDB): display settings
+-- Per character (ProfessionTooltipCharDB): learned recipes and profession ranks
+-- Defaults for a fresh install: only the core feature is enabled, all extras are off.
 local DEFAULTS = {
-    -- Tab "Tooltip": Rezeptliste
+    -- Tab "Tooltip": recipe list
     detailed = true,
     showSkill = true,
     showSkillKnown = false,
     showReagentCount = true,
-    groupByKnown = false,          -- getrennte Abschnitte "Gelernt" / "Nicht gelernt"
-    maxLinesPerProfession = 10,    -- 0 = unbegrenzt
-    unknownFilter = "all",         -- "all", "learnable" (Skill reicht), "noGray" (für mich graue ausblenden)
+    groupByKnown = false,          -- separate "Learned" / "Not learned" sections
+    maxLinesPerProfession = 10,    -- 0 = unlimited
+    unknownFilter = "all",         -- "all", "learnable" (enough skill), "noGray" (hide recipes that are gray for me)
     unknownOnlyOnShift = false,
     hideTrivialKnownOnShift = true,
     -- Tab "Design"
-    headerStyle = "full",          -- "full" (Icon + Name), "icon", "name"
-    showProfessionRank = false,    -- eigene Berufsstufe im Header, z. B. 70/150
-    showKnownCount = true,         -- "16/82 gelernt" im Header
-    spacing = true,                -- Leerzeilen zwischen Berufen
-    showHints = true,              -- Hinweiszeilen (Shift, Berufsfenster öffnen)
-    -- Tab "Berufe"
+    headerStyle = "full",          -- "full" (icon + name), "icon", "name"
+    showProfessionRank = false,    -- own profession rank in the header, e.g. 70/150
+    showKnownCount = true,         -- "16/82 learned" in the header
+    spacing = true,                -- blank lines between professions
+    showHints = true,              -- hint lines (Shift, open profession window)
+    -- Tab "Professions"
     onlyOwnProfessions = true,
     showOtherProfessionIcons = true,
     disabledProfessions = {},      -- [skillLineID] = true
     -- Tab "Extras"
-    showAltKnown = false,          -- "Bekannt bei: <Twink>"
-    showRecipeItemInfo = false,    -- Rezept-Items: gelernt / lernbar / Skill zu niedrig
-    showCraftedBy = false,         -- hergestellte Items: Rezept anzeigen
-    showCraftedReagents = true,    --   ... samt Zutaten (Unteroption)
-    showStockCount = false,        -- "reicht für N" aus Taschen + Bank
-    showRecipeValue = false,       -- Auktionswert des Endprodukts (Auctionator)
-    -- Tab "Allgemein"
+    showAltKnown = false,          -- "Known by: <alt>"
+    showRecipeItemInfo = false,    -- recipe items: learned / learnable / skill too low
+    showCraftedBy = false,         -- crafted items: show the recipe
+    showCraftedReagents = true,    --   ... including reagents (sub-option)
+    showStockCount = false,        -- "enough for N" from bags + bank
+    showRecipeValue = false,       -- auction value of the product (Auctionator)
+    -- Tab "General"
     minimap = { show = true, angle = 200 },
-    legacyCheck = true,            -- beim Login auf CookingTooltip/AlchemyTooltip hinweisen
-    characters = {},               -- accountweit: ["Name-Realm"] = { class, professions, known }
-    trainerSkills = {},            -- accountweit, vom Lehrer-Scan: [spellID] = benötigte Stufe
+    legacyCheck = true,            -- point out CookingTooltip/AlchemyTooltip on login
+    characters = {},               -- account-wide: ["Name-Realm"] = { class, professions, known }
+    trainerSkills = {},            -- account-wide, from the trainer scan: [spellID] = required rank
 }
 
 local CHAR_DEFAULTS = {
-    known = {},       -- [spellID] = Schwierigkeit (0 orange, 1 gelb, 2 grün, 3 grau)
-    extra = {},       -- [spellID] = { profession, name, { itemID, count, ... } } für Rezepte ohne DB-Eintrag
+    known = {},       -- [spellID] = difficulty (0 orange, 1 yellow, 2 green, 3 gray)
+    extra = {},       -- [spellID] = { profession, name, { itemID, count, ... } } for recipes without a DB entry
     professions = {}, -- [skillLineID] = { rank = n, max = n }
-    scanned = {},     -- [skillLineID] = true, sobald das Berufsfenster einmal gescannt wurde
+    scanned = {},     -- [skillLineID] = true once the profession window has been scanned
 }
 
 local function ApplyDefaults(target, defaults)
@@ -141,9 +141,9 @@ ns.RegisterEvent("ADDON_LOADED", function(_, loadedName)
 end)
 
 -- ----------------------------------------------------------------------------
--- Hilfsfunktionen
+-- Helpers
 -- ----------------------------------------------------------------------------
--- Spellnamen ändern sich nie -> einmal auflösen und merken
+-- Spell names never change -> resolve once and remember
 local spellNameCache = {}
 
 function ns.GetSpellName(spellID)

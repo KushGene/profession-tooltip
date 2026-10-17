@@ -1,6 +1,6 @@
 -- Locales/enUS.lua
--- Basis-Sprache. Andere Sprachen überschreiben nur, was sie übersetzen;
--- fehlende Schlüssel fallen über die Metatable auf Englisch zurück.
+-- Base language. Other languages only override what they translate;
+-- missing keys fall back to English via the metatable.
 local _, ns = ...
 
 local L = {}
@@ -17,7 +17,7 @@ L["OTHER_PROFESSIONS"] = "Also used by:"
 L["SECTION_KNOWN"] = "Known"
 L["SECTION_UNKNOWN"] = "Not known"
 
--- Berufe (Fallback, falls der Client keinen Namen liefert)
+-- Professions (fallback in case the client returns no name)
 L["PROFESSION_ALCHEMY"] = "Alchemy"
 L["PROFESSION_BLACKSMITHING"] = "Blacksmithing"
 L["PROFESSION_ENCHANTING"] = "Enchanting"
@@ -31,7 +31,7 @@ L["PROFESSION_COOKING"] = "Cooking"
 L["PROFESSION_FIRST_AID"] = "First Aid"
 L["PROFESSION_FISHING"] = "Fishing"
 
--- Einstellungen: allgemein
+-- Settings: general
 L["SUBTITLE"] = "Shows which recipes use an ingredient – for all your professions."
 L["OPEN_SETTINGS"] = "Open settings window"
 L["MINIMAP_TOOLTIP"] = "Left-click: Open settings"
@@ -79,7 +79,7 @@ L["OPT_SPACING_DESC"] = "Separates the professions with a blank line. Disable fo
 L["OPT_HINTS"] = "Show hints"
 L["OPT_HINTS_DESC"] = "Shows hints such as \"Hold [SHIFT] …\" or \"Open your profession window …\"."
 
--- Tab "Berufe"
+-- Tab "Professions"
 L["SECTION_FILTER"] = "Filter"
 L["SECTION_PROFESSION_LIST"] = "Professions in the tooltip"
 L["OPT_ONLY_OWN"] = "Only show my professions"
@@ -91,7 +91,7 @@ L["OPT_MAX_LINES_DESC"] = "Longer lists are shortened. Hold Shift to see everyth
 L["UNLIMITED"] = "All"
 L["NOT_LEARNED"] = "not learned"
 
--- Tab "Allgemein"
+-- Tab "General"
 L["SECTION_GENERAL"] = "General"
 L["SECTION_DATA"] = "Scan data"
 L["OPT_MINIMAP"] = "Show minimap button"
@@ -103,7 +103,7 @@ L["DATA_INFO"] = "Recipe database: %d recipes, %d ingredients."
 L["RESET_SCAN"] = "Reset scan data"
 L["RESET_SCAN_CONFIRM"] = "Delete the scanned recipes of this character?\nThey are rescanned the next time you open a profession window."
 
--- Tab "Extras", Filter, Übergang von alten Addons
+-- Tab "Extras", filters, migration from old addons
 L["TAB_EXTRAS"] = "Extras"
 L["FILTER_ALL"] = "All"
 L["FILTER_LEARNABLE"] = "Learnable now"

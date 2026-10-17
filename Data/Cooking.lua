@@ -1,10 +1,10 @@
 -- Data/Cooking.lua
--- Automatisch erzeugt von Tools/build_data.py aus dem Client (WOW-70450patch1.60.1_ForeverBeta).
--- Nicht von Hand bearbeiten, sondern das Skript erneut ausführen.
+-- Generated automatically by Tools/build_data.py from the client (WOW-70450patch1.60.1_ForeverBeta).
+-- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
--- [spellID] = { benötigterSkill (0 = unbekannt), "Fallback-Name", { itemID, Menge, ... },
---               hergestelltesItem (0 = keins), gelbAb, grünAb, grauAb }
+-- [spellID] = { requiredSkill (0 = unknown), "fallback name", { itemID, count, ... },
+--               createdItem (0 = none), yellowAt, greenAt, grayAt }
 ns.RegisterRecipes(185, {
     [818] = { 0, "Basic Campfire", { 4470, 1 }, 0, 25, 50, 75 },
     [13028] = { 0, "Goldthorn Tea", { 3821, 1, 159, 1 }, 10841, 215, 235, 255 },

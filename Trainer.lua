@@ -1,12 +1,12 @@
 -- Trainer.lua
--- Liest beim Öffnen eines Berufslehrers die benötigte Stufe der angebotenen Rezepte aus.
--- Lehrer-Daten stehen nicht in den Spieldateien, sondern kommen vom Server. Gespeichert wird
--- accountweit in ns.db.trainerSkills; Tools/build_data.py übernimmt die Werte in die Addon-Daten.
+-- Reads the required rank of the offered recipes when a profession trainer opens.
+-- Trainer data isn't in the game files but comes from the server. It is stored
+-- account-wide in ns.db.trainerSkills; Tools/build_data.py merges the values into the addon data.
 local _, ns = ...
 
 local SERVICE_TYPES = { "available", "unavailable", "used" }
 
-local nameIndex -- [professionID] = { [Rezeptname] = spellID }
+local nameIndex -- [professionID] = { [recipe name] = spellID }
 
 local function BuildNameIndex()
     nameIndex = {}
@@ -28,7 +28,7 @@ local function FindProfessionByName(name)
     end
 end
 
--- Spell-ID eines Lehrer-Angebots: bevorzugt über die Tooltip-Daten, sonst über den Namen
+-- Spell ID of a trainer offer: preferably via the tooltip data, otherwise via the name
 local function GetServiceSpellID(index, name, professionID)
     if C_TooltipInfo and C_TooltipInfo.GetTrainerService then
         local data = C_TooltipInfo.GetTrainerService(index)
@@ -40,7 +40,7 @@ local function GetServiceSpellID(index, name, professionID)
     return nameIndex[professionID] and nameIndex[professionID][name]
 end
 
--- Alle Angebote sichtbar machen (auch nicht verfügbare/gelernte); Rückgabe: vorherige Filter
+-- Make all offers visible (including unavailable/learned ones); returns: previous filters
 local function ShowAllServices()
     if not (GetTrainerServiceTypeFilter and SetTrainerServiceTypeFilter) then return nil end
     local previous = {}
@@ -90,8 +90,8 @@ function ns.GetTrainerSkillCount()
     return count
 end
 
--- Einmal pro Lehrer-Besuch, kurz verzögert, bis die Angebotsliste geladen ist.
--- (Nicht auf TRAINER_UPDATE reagieren: das Umschalten der Filter löst es selbst aus.)
+-- Once per trainer visit, slightly delayed until the offer list has loaded.
+-- (Don't react to TRAINER_UPDATE: toggling the filters triggers it itself.)
 ns.RegisterEvent("TRAINER_SHOW", function()
     C_Timer.After(0.3, Scan)
 end)

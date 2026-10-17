@@ -13,7 +13,7 @@ L["OTHER_PROFESSIONS"] = "Também usado por:"
 L["SECTION_KNOWN"] = "Aprendidas"
 L["SECTION_UNKNOWN"] = "Não aprendidas"
 
--- Einstellungen
+-- Settings
 L["SUBTITLE"] = "Mostra quais receitas usam um ingrediente – para todas as suas profissões."
 L["OPEN_SETTINGS"] = "Abrir janela de configurações"
 L["MINIMAP_TOOLTIP"] = "Clique esquerdo: abrir configurações"

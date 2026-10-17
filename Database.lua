@@ -1,10 +1,10 @@
 -- Database.lua
--- Rezept-Registry (gefüllt von Data/*.lua) und Indizes Zutat -> Rezepte, Item -> Rezepte.
+-- Recipe registry (filled by Data/*.lua) and indexes reagent -> recipes, item -> recipes.
 --
--- Rezeptformat (kompakt, damit die Data-Dateien klein bleiben):
---   [spellID] = { requiredSkill, "Fallback-Name", { itemID, count, ... }, createdItem, yellowAt, greenAt, grayAt }
--- requiredSkill 0 = unbekannt, createdItem 0 = kein Item (z. B. Verzauberungen).
--- Die Farbstufen sind optional; fehlen sie, gilt die beim Scan gemeldete Schwierigkeit.
+-- Recipe format (compact, so the data files stay small):
+--   [spellID] = { requiredSkill, "fallback name", { itemID, count, ... }, createdItem, yellowAt, greenAt, grayAt }
+-- requiredSkill 0 = unknown, createdItem 0 = no item (e.g. enchants).
+-- The color thresholds are optional; if missing, the difficulty reported by the scan applies.
 local _, ns = ...
 
 local SKILL, NAME, REAGENTS, CREATED, YELLOW, GREEN, GRAY = 1, 2, 3, 4, 5, 6, 7
@@ -12,9 +12,9 @@ local DIFFICULTY_OPTIMAL, DIFFICULTY_MEDIUM, DIFFICULTY_EASY, DIFFICULTY_TRIVIAL
 
 local recipes = {}          -- [spellID] = recipe
 local recipeProfession = {} -- [spellID] = skillLineID
-local recipeItems = {}      -- [Rezept-Item] = gelehrter Spell
-local reagentIndex          -- [itemID] = { spellID, ... }, sortiert; wird bei Bedarf aufgebaut
-local createdIndex          -- [itemID] = { spellID, ... } für hergestellte Items
+local recipeItems = {}      -- [recipe item] = taught spell
+local reagentIndex          -- [itemID] = { spellID, ... }, sorted; built on demand
+local createdIndex          -- [itemID] = { spellID, ... } for crafted items
 
 function ns.RegisterRecipes(professionID, list)
     for spellID, recipe in pairs(list) do
@@ -29,7 +29,7 @@ function ns.RegisterRecipeItems(list)
     end
 end
 
--- Liefert Rezept und Beruf; berücksichtigt auch per Scan gefundene Rezepte ohne DB-Eintrag
+-- Returns recipe and profession; also covers scanned recipes without a DB entry
 function ns.GetRecipe(spellID)
     local recipe = recipes[spellID]
     if recipe then
@@ -51,8 +51,8 @@ function ns.GetRecipeSkill(recipe)
     return recipe[SKILL] or 0
 end
 
--- Benötigte Stufe zum Erlernen: aus den Daten oder – falls niedriger bzw. unbekannt – aus dem
--- Lehrer-Scan (Lehrer-Daten stehen nicht in den Spieldateien). 0 = unbekannt.
+-- Rank required to learn: from the data or – if lower or unknown there – from the
+-- trainer scan (trainer data isn't in the game files). 0 = unknown.
 function ns.GetRequiredSkill(spellID, recipe)
     local skill = recipe[SKILL] or 0
     local trainer = ns.db.trainerSkills[spellID]
@@ -89,7 +89,7 @@ function ns.GetReagentCount(recipe, itemID)
     return 0
 end
 
--- Spell, den ein Rezept-Item lehrt (oder nil)
+-- Spell taught by a recipe item (or nil)
 function ns.GetSpellTaughtBy(itemID)
     return recipeItems[itemID]
 end
@@ -103,7 +103,7 @@ local function AddToIndex(index, itemID, spellID)
     list[#list + 1] = spellID
 end
 
--- Sortierung: Beruf (Anzeigereihenfolge), dann benötigter Skill, dann Spell-ID (stabil)
+-- Sort order: profession (display order), then required skill, then spell ID (stable)
 local function CompareSpells(a, b)
     local recipeA, profA = ns.GetRecipe(a)
     local recipeB, profB = ns.GetRecipe(b)
@@ -144,21 +144,21 @@ local function BuildIndexes()
     end
 end
 
--- Spell-IDs aller Rezepte, die diese Zutat verwenden (oder nil)
+-- Spell IDs of all recipes that use this reagent (or nil)
 function ns.GetRecipesForItem(itemID)
     if not reagentIndex then BuildIndexes() end
     return reagentIndex[itemID]
 end
 
--- Spell-IDs aller Rezepte, die dieses Item herstellen (oder nil)
+-- Spell IDs of all recipes that create this item (or nil)
 function ns.GetRecipesCreating(itemID)
     if not createdIndex then BuildIndexes() end
     return createdIndex[itemID]
 end
 
--- Schwierigkeit (0 orange .. 3 grau) eines gelernten Rezepts, nil wenn nicht gelernt.
--- Gelernt: laut Scan oder laut IsPlayerSpell (greift auch ohne geöffnetes Berufsfenster).
--- Die Farbe wird aus der aktuellen Berufsstufe berechnet, damit sie beim Skillen aktuell bleibt.
+-- Difficulty (0 orange .. 3 gray) of a learned recipe, nil if not learned.
+-- Learned: per scan or per IsPlayerSpell (works without the profession window open, too).
+-- The color is computed from the current profession rank so it stays current while leveling.
 function ns.GetKnownDifficulty(spellID)
     local scanned = ns.char.known[spellID]
     if scanned == nil and not IsPlayerSpell(spellID) then
@@ -175,7 +175,7 @@ function ns.GetKnownDifficulty(spellID)
     return scanned or DIFFICULTY_OPTIMAL
 end
 
--- Anzahl Rezepte und Zutaten (für die Statistik in den Einstellungen)
+-- Number of recipes and reagents (for the statistics in the settings)
 function ns.GetDatabaseStats()
     if not reagentIndex then BuildIndexes() end
     local recipeCount, itemCount = 0, 0
@@ -184,7 +184,7 @@ function ns.GetDatabaseStats()
     return recipeCount, itemCount
 end
 
--- Neue Scan-Rezepte ohne DB-Eintrag erfordern einen Neuaufbau
+-- New scanned recipes without a DB entry require a rebuild
 function ns.InvalidateIndex()
     reagentIndex, createdIndex = nil, nil
 end

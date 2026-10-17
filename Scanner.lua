@@ -1,11 +1,11 @@
 -- Scanner.lua
--- Liest beim Öffnen eines Berufsfensters die gelernten Rezepte und deren Schwierigkeit aus.
+-- Reads the learned recipes and their difficulty when a profession window opens.
 local _, ns = ...
 
 local T = C_TradeSkillUI
 local BASIC_REAGENT = Enum.CraftingReagentType and Enum.CraftingReagentType.Basic
 
--- Ermittelt den Beruf des offenen Fensters (nur eigene Berufe, keine verlinkten/NPC-Fenster)
+-- Determines the profession of the open window (own professions only, no linked/NPC windows)
 local function GetOpenProfessionID()
     if (T.IsTradeSkillLinked and T.IsTradeSkillLinked())
         or (T.IsTradeSkillGuild and T.IsTradeSkillGuild())
@@ -42,11 +42,11 @@ local function Scan()
     if not professionID then return end
 
     local recipeIDs = T.GetAllRecipeIDs()
-    if not recipeIDs or #recipeIDs == 0 then return end -- Daten noch nicht geladen
+    if not recipeIDs or #recipeIDs == 0 then return end -- data not loaded yet
 
     local known, extra = ns.char.known, ns.char.extra
 
-    -- Alte Einträge dieses Berufs entfernen (z. B. Schwierigkeit hat sich geändert)
+    -- Remove old entries of this profession (e.g. the difficulty has changed)
     for spellID in pairs(known) do
         local _, profession = ns.GetRecipe(spellID)
         if profession == professionID or profession == nil then
@@ -59,7 +59,7 @@ local function Scan()
         local recipeInfo = T.GetRecipeInfo(recipeID)
         if recipeInfo and recipeInfo.learned then
             known[recipeID] = recipeInfo.relativeDifficulty or 0
-            -- Rezepte, die (noch) nicht in der Datenbank stehen, merken wir uns samt Zutaten
+            -- Remember recipes that aren't in the database (yet), including their reagents
             if not ns.GetRecipe(recipeID) then
                 local reagents = ReadReagents(recipeID)
                 if reagents and #reagents > 0 then
@@ -81,7 +81,7 @@ local function Scan()
     ns.Fire("DATA_CHANGED")
 end
 
--- Die Listen-Events feuern beim Öffnen mehrfach kurz hintereinander -> zusammenfassen
+-- The list events fire several times in quick succession on open -> coalesce them
 local scanPending = false
 local function RequestScan()
     if scanPending then return end

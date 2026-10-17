@@ -14,7 +14,7 @@ L["OTHER_PROFESSIONS"] = "Auch genutzt von:"
 L["SECTION_KNOWN"] = "Gelernt"
 L["SECTION_UNKNOWN"] = "Nicht gelernt"
 
--- Berufe
+-- Professions
 L["PROFESSION_ALCHEMY"] = "Alchimie"
 L["PROFESSION_BLACKSMITHING"] = "Schmiedekunst"
 L["PROFESSION_ENCHANTING"] = "Verzauberkunst"
@@ -28,7 +28,7 @@ L["PROFESSION_COOKING"] = "Kochkunst"
 L["PROFESSION_FIRST_AID"] = "Erste Hilfe"
 L["PROFESSION_FISHING"] = "Angeln"
 
--- Einstellungen: allgemein
+-- Settings: general
 L["SUBTITLE"] = "Zeigt, in welchen Rezepten eine Zutat steckt – für alle deine Berufe."
 L["OPEN_SETTINGS"] = "Einstellungsfenster öffnen"
 L["MINIMAP_TOOLTIP"] = "Linksklick: Einstellungen öffnen"
@@ -76,7 +76,7 @@ L["OPT_SPACING_DESC"] = "Trennt die Berufe durch eine Leerzeile. Ausschalten fü
 L["OPT_HINTS"] = "Hinweise anzeigen"
 L["OPT_HINTS_DESC"] = "Zeigt Hinweise wie \"Halte [SHIFT] …\" oder \"Berufsfenster einmal öffnen …\"."
 
--- Tab "Berufe"
+-- Tab "Professions"
 L["SECTION_FILTER"] = "Filter"
 L["SECTION_PROFESSION_LIST"] = "Berufe im Tooltip"
 L["OPT_ONLY_OWN"] = "Nur meine Berufe anzeigen"
@@ -88,7 +88,7 @@ L["OPT_MAX_LINES_DESC"] = "Längere Listen werden gekürzt. Mit Shift siehst du 
 L["UNLIMITED"] = "Alle"
 L["NOT_LEARNED"] = "nicht erlernt"
 
--- Tab "Allgemein"
+-- Tab "General"
 L["SECTION_GENERAL"] = "Allgemein"
 L["SECTION_DATA"] = "Scan-Daten"
 L["OPT_MINIMAP"] = "Minimap-Button anzeigen"
@@ -100,7 +100,7 @@ L["DATA_INFO"] = "Rezeptdatenbank: %d Rezepte, %d Zutaten."
 L["RESET_SCAN"] = "Scan-Daten zurücksetzen"
 L["RESET_SCAN_CONFIRM"] = "Gescannte Rezepte dieses Charakters löschen?\nSie werden beim nächsten Öffnen eines Berufsfensters neu eingelesen."
 
--- Tab "Extras", Filter, Übergang von alten Addons
+-- Tab "Extras", filters, migration from old addons
 L["TAB_EXTRAS"] = "Extras"
 L["FILTER_ALL"] = "Alle"
 L["FILTER_LEARNABLE"] = "Jetzt lernbar"

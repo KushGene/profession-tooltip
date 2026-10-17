@@ -1,5 +1,5 @@
 -- UI/Widgets.lua
--- Wiederverwendbare UI-Bausteine im flachen Design des Addons.
+-- Reusable UI building blocks in the addon's flat design.
 local _, ns = ...
 
 local Widgets = {}
@@ -27,7 +27,7 @@ function Widgets.Line(parent, alpha)
 end
 
 -- ----------------------------------------------------------------------------
--- Column: legt Elemente automatisch untereinander an
+-- Column: stacks elements below each other automatically
 -- ----------------------------------------------------------------------------
 local Column = {}
 Column.__index = Column
@@ -55,7 +55,7 @@ function Column:Header(text)
     return header
 end
 
--- Erzeugt Label + Beschreibung rechts neben einem Steuerelement der Breite controlWidth
+-- Creates label + description to the right of a control of width controlWidth
 function Column:Label(anchor, controlWidth, label, desc)
     local text = self.parent:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     text:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 6, -5)
@@ -76,14 +76,14 @@ function Column:Label(anchor, controlWidth, label, desc)
     return text, descText, height
 end
 
--- opts: label, desc, get(), set(value), enabled() optional, indent (Unteroption) optional
+-- opts: label, desc, get(), set(value), enabled() optional, indent (sub-option) optional
 function Column:Check(opts)
     local indent = opts.indent and 24 or 0
     local cb = CreateFrame("CheckButton", nil, self.parent, "UICheckButtonTemplate")
     cb:SetSize(24, 24)
     cb:SetPoint("TOPLEFT", self.x + indent, self.y + 3)
     local text, _, height = self:Label(cb, 24 + indent, opts.label, opts.desc)
-    cb:SetHitRectInsets(0, -(self.width - 24 - indent), 0, 0) -- Klick auf den Text schaltet mit
+    cb:SetHitRectInsets(0, -(self.width - 24 - indent), 0, 0) -- clicking the text toggles too
     cb:SetScript("OnClick", function(button)
         opts.set(button:GetChecked() and true or false)
     end)
@@ -100,7 +100,7 @@ function Column:Check(opts)
     return cb
 end
 
--- Auswahl als Segment-Leiste: alle Werte nebeneinander, der gewählte ist hervorgehoben.
+-- Selection as a segmented bar: all values side by side, the selected one is highlighted.
 -- opts: label, desc, values, format(value), get(), set(value), enabled() optional
 local SEGMENT_HEIGHT, SEGMENT_GAP, SEGMENT_PADDING = 22, 4, 20
 local SEGMENT_BG, SEGMENT_BORDER = { 0.12, 0.12, 0.14, 1 }, { 1, 1, 1, 0.12 }
@@ -130,7 +130,7 @@ function Column:Choice(opts)
         button.text:SetPoint("CENTER")
         button.text:SetText(opts.format(value))
         local width = math.max(36, button.text:GetStringWidth() + SEGMENT_PADDING)
-        if x + width > self.x + self.width then -- Zeilenumbruch, falls die Leiste zu breit wird
+        if x + width > self.x + self.width then -- wrap if the bar gets too wide
             x = self.x
             y = y - SEGMENT_HEIGHT - SEGMENT_GAP
         end
@@ -172,7 +172,7 @@ function Column:Choice(opts)
     self.y = y - SEGMENT_HEIGHT - 14
 end
 
--- Beliebiges eigenes Element registrieren (muss Refresh() haben)
+-- Register any custom element (must have Refresh())
 function Column:Add(item, height)
     self.items[#self.items + 1] = item
     self.y = self.y - height

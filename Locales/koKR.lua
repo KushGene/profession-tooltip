@@ -13,7 +13,7 @@ L["OTHER_PROFESSIONS"] = "사용하는 다른 전문기술:"
 L["SECTION_KNOWN"] = "배움"
 L["SECTION_UNKNOWN"] = "배우지 않음"
 
--- Einstellungen
+-- Settings
 L["SUBTITLE"] = "재료가 어떤 제조법에 쓰이는지 모든 전문기술에 대해 보여줍니다."
 L["OPEN_SETTINGS"] = "설정 창 열기"
 L["MINIMAP_TOOLTIP"] = "왼쪽 클릭: 설정 열기"

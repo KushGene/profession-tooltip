@@ -1,10 +1,10 @@
 -- Data/Enchanting.lua
--- Automatisch erzeugt von Tools/build_data.py aus dem Client (WOW-70450patch1.60.1_ForeverBeta).
--- Nicht von Hand bearbeiten, sondern das Skript erneut ausführen.
+-- Generated automatically by Tools/build_data.py from the client (WOW-70450patch1.60.1_ForeverBeta).
+-- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
--- [spellID] = { benötigterSkill (0 = unbekannt), "Fallback-Name", { itemID, Menge, ... },
---               hergestelltesItem (0 = keins), gelbAb, grünAb, grauAb }
+-- [spellID] = { requiredSkill (0 = unknown), "fallback name", { itemID, count, ... },
+--               createdItem (0 = none), yellowAt, greenAt, grayAt }
 ns.RegisterRecipes(333, {
     [1217189] = { 0, "Enchant Bracer - Spell Power", { 14344, 2, 16204, 20, 16203, 4, 7080, 2, 7078, 2, 7082, 2 }, 0, 320, 340, 360 },
     [1217203] = { 0, "Enchant Bracer - Agility", { 20725, 2, 16204, 10, 16203, 2, 7082, 2 }, 0, 320, 340, 360 },
