@@ -9,6 +9,8 @@ Hauptquelle sind die DB2-Tabellen des Clients (gelesen über casc.py/db2.py):
   ItemSparse + ItemEffect + ItemXItemEffect   benötigter Skill laut Rezept-Item
 
 Optionale Web-Ergänzungen (entfallen mit --offline):
+  Lehrer-Scans   benötigter Skill für Lehrer-Rezepte, vom Addon beim Besuch eines Lehrers erfasst
+                 (SavedVariables im WoW-Ordner)
   foreverdb.net  benötigter Skill für Lehrer-Rezepte (steht nicht im Client); ohne Treffer
                  bleibt er unbekannt (0) – es wird nichts geschätzt
   seemeta.com    Liste der in Forever erhältlichen Rezepte, um Season-of-Discovery-Rezepte
@@ -21,8 +23,10 @@ Aufruf:
   python3 Tools/build_data.py              # normaler Lauf
   python3 Tools/build_data.py --refresh    # Definitionen, Keys und Web-Listen neu laden
   python3 Tools/build_data.py --offline    # nur Client-Daten (+ vorhandener Cache)
+  python3 Tools/build_data.py --dry-run    # nur prüfen: zeigt, was sich ändern würde
 """
 import argparse
+import glob
 import html
 import json
 import os
@@ -111,7 +115,6 @@ def load_client_tables(wow_dir, product, web):
     if web.get(TACT_KEYS_URL, "tactkeys.txt") is None and not os.path.exists(keys_path):
         sys.exit("TACT-Keys fehlen (einmal ohne --offline ausführen)")
     storage = casc.Casc(wow_dir, product, casc.load_tact_keys(keys_path))
-    print(f"Client: {storage.build_name}", flush=True)
 
     manifest = {e["tableName"]: e.get("db2FileDataID") for e in json.loads(web.get(MANIFEST_URL, "manifest.json"))}
     tables = {}
@@ -174,6 +177,151 @@ def seemeta_available(web, profession):
 
 
 # ----------------------------------------------------------------------------
+# Lehrer-Scans aus dem Spiel (SavedVariables)
+# ----------------------------------------------------------------------------
+def trainer_scans(wow_dir):
+    """Vom Addon erfasste Lehrer-Stufen aller Accounts: {spellID: Stufe}.
+
+    Das Addon speichert sie in WTF/Account/<Account>/SavedVariables/ProfessionTooltip.lua.
+    Bei mehreren Werten für ein Rezept gilt der niedrigste."""
+    pattern = os.path.join(wow_dir, "_*_", "WTF", "Account", "*", "SavedVariables", "ProfessionTooltip.lua")
+    skills, files = {}, 0
+    for path in glob.glob(pattern):
+        with open(path, encoding="utf8", errors="replace") as f:
+            block = re.search(r'\["trainerSkills"\]\s*=\s*\{([^{}]*)\}', f.read())
+        if not block:
+            continue
+        files += 1
+        for spell_id, rank in re.findall(r"\[(\d+)\]\s*=\s*(\d+)", block[1]):
+            spell_id, rank = int(spell_id), int(rank)
+            if rank > 0 and (spell_id not in skills or rank < skills[spell_id]):
+                skills[spell_id] = rank
+    return skills, files
+
+
+# ----------------------------------------------------------------------------
+# Vergleich mit den vorhandenen Daten
+# ----------------------------------------------------------------------------
+def read_data_file(path):
+    """Vorhandene Data-Datei -> {spellID: (skill, name, reagents, created, levels)}"""
+    if not os.path.exists(path):
+        return {}
+    result = {}
+    with open(path, encoding="utf8") as f:
+        for line in f:
+            m = re.match(r'\s*\[(\d+)\] = \{ (\d+), "((?:[^"\\]|\\.)*)", \{ ([^}]*) \}, (\d+)((?:, \d+)*) \},', line)
+            if m:
+                numbers = [int(x) for x in m[4].split(",")]
+                result[int(m[1])] = (int(m[2]), m[3], tuple(zip(numbers[::2], numbers[1::2])), int(m[5]),
+                                     tuple(int(x) for x in m[6].split(",")[1:]))
+    return result
+
+
+def as_tuple(recipe):
+    return (recipe["skill"], recipe["name"].replace("\\", "\\\\").replace('"', '\\"'), tuple(recipe["reagents"]),
+            recipe["created"], tuple(recipe["levels"] or ()))
+
+
+CHANGE_KINDS = ("Zutaten", "Lernstufe", "Farbstufen", "Name", "Endprodukt")
+
+
+def compare(old, new):
+    """Zählt neue, entfernte und geänderte Rezepte (nach Art der Änderung)."""
+    stats = {"neu": len(set(new) - set(old)), "entfernt": len(set(old) - set(new)), "geändert": 0}
+    stats.update({kind: 0 for kind in CHANGE_KINDS})
+    for spell_id in set(old) & set(new):
+        a, b = old[spell_id], as_tuple(new[spell_id])
+        diffs = [kind for kind, i in (("Lernstufe", 0), ("Name", 1), ("Zutaten", 2), ("Endprodukt", 3), ("Farbstufen", 4))
+                 if a[i] != b[i]]
+        if diffs:
+            stats["geändert"] += 1
+            for kind in diffs:
+                stats[kind] += 1
+    return stats
+
+
+# Farben nur im Terminal (nicht in Logdateien); NO_COLOR schaltet sie ab
+USE_COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+DISPLAY_NAMES = {
+    "Alchemy": "Alchimie", "Blacksmithing": "Schmiedekunst", "Enchanting": "Verzauberkunst",
+    "Engineering": "Ingenieurskunst", "Leatherworking": "Lederverarbeitung", "Tailoring": "Schneiderei",
+    "Mining": "Bergbau", "Herbalism": "Kräuterkunde", "Skinning": "Kürschnerei", "Cooking": "Kochkunst",
+    "FirstAid": "Erste Hilfe", "Fishing": "Angeln", "RecipeItems": "Rezept-Items",
+}
+
+
+def color(text, code):
+    return f"\033[{code}m{text}\033[0m" if USE_COLOR else text
+
+
+def bold(text): return color(text, "1")
+def dim(text): return color(text, "2")
+def green(text): return color(text, "32")
+def yellow(text): return color(text, "33")
+
+
+def heading(text):
+    print("\n" + bold(text.upper()))
+    print(dim("─" * 78))
+
+
+def print_header(build_name, trainer_count, trainer_files, dry_run):
+    title = "Profession Tooltip – Datenprüfung" + (" (Testlauf, es wird nichts geschrieben)" if dry_run else "")
+    print(bold(title))
+    print(dim("═" * 78))
+    print(f"  {'Datum':14} {time.strftime('%d.%m.%Y %H:%M')}")
+    print(f"  {'Spielclient':14} {build_name}")
+    print(f"  {'Lehrer-Scans':14} {trainer_count} Rezepte aus {trainer_files} SavedVariables-Datei(en)")
+
+
+def print_recipe_table(rows):
+    heading("Rezepte pro Beruf")
+    print(dim(f"  {'':18} {'':>7}   {'Lernstufe bekannt aus':^30}   {'':>9}  {'nicht in':>8}"))
+    print(dim(f"  {'Beruf':18} {'Rezepte':>7}   {'Item':>6} {'Lehrer':>7} {'foreverdb':>10}   {'unbekannt':>9}  {'Forever':>8}"))
+    totals = {"count": 0, "Rezept-Item": 0, "Lehrer-Scan": 0, "foreverdb": 0, "unbekannt": 0, "skipped": 0}
+    for name, count, sources, skipped in rows:
+        unknown = sources["unbekannt"]
+        print(f"  {DISPLAY_NAMES.get(name, name):18} {count:>7}   {sources['Rezept-Item']:>6} {sources['Lehrer-Scan']:>7} "
+              f"{sources['foreverdb']:>10}   {(yellow if unknown else str)(f'{unknown:>9}')}  {dim(f'{skipped:>8}')}")
+        totals["count"] += count
+        totals["skipped"] += skipped
+        for key in ("Rezept-Item", "Lehrer-Scan", "foreverdb", "unbekannt"):
+            totals[key] += sources[key]
+    print(dim("  " + "─" * 76))
+    print(bold(f"  {'Summe':18} {totals['count']:>7}   {totals['Rezept-Item']:>6} {totals['Lehrer-Scan']:>7} "
+               f"{totals['foreverdb']:>10}   {totals['unbekannt']:>9}  {totals['skipped']:>8}"))
+
+
+def print_report(rows, total_changes, item_count, dry_run):
+    print(f"\n  Rezept-Items (\"Recipe: …\"): {item_count}")
+    heading("Änderungen gegenüber den vorhandenen Daten")
+    changed = [(name, st) for name, st in rows if st["neu"] or st["entfernt"] or st["geändert"]]
+    if not changed:
+        print("  " + green("✔ Keine Änderungen – die Daten sind aktuell."))
+    else:
+        print(dim(f"  {'Beruf':18} {'neu':>5} {'entfernt':>9} {'geändert':>9}   davon"))
+        for name, st in changed:
+            detail = ", ".join(f"{st[kind]}× {kind}" for kind in CHANGE_KINDS if st[kind])
+            print(f"  {DISPLAY_NAMES.get(name, name):18} {st['neu']:>5} {st['entfernt']:>9} {st['geändert']:>9}   {dim(detail)}")
+
+    heading("Ergebnis")
+    if total_changes == 0:
+        print("  " + green("✔ Ein Addon-Update ist nicht nötig."))
+    elif dry_run:
+        print("  " + yellow(f"➜ {total_changes} Änderung(en) – ein Addon-Update lohnt sich."))
+        print("\n  Nächste Schritte:")
+        print("    1. Ohne --dry-run ausführen, um die Daten zu übernehmen")
+        print("    2. Im Spiel testen (/reload)")
+        print("    3. CHANGELOG.md ergänzen, committen, Release-Tag setzen")
+    else:
+        print("  " + yellow(f"➜ {total_changes} Änderung(en) übernommen – Dateien in Data/ wurden aktualisiert."))
+        print("\n  Nächste Schritte:")
+        print("    1. Im Spiel testen (/reload)")
+        print("    2. CHANGELOG.md ergänzen, committen, Release-Tag setzen")
+    print()
+
+
+# ----------------------------------------------------------------------------
 # Ausgabe
 # ----------------------------------------------------------------------------
 def lua_string(text):
@@ -201,9 +349,33 @@ def write_data_file(path, file_name, skill_line, build_name, recipes):
         f.write("\n".join(lines) + "\n")
 
 
+def write_recipe_items(path, build_name, items):
+    lines = [
+        "-- Data/RecipeItems.lua",
+        f"-- Automatisch erzeugt von Tools/build_data.py aus dem Client ({build_name}).",
+        "local _, ns = ...",
+        "",
+        "-- [Rezept-Item] = gelehrter Spell",
+        "ns.RegisterRecipeItems({",
+    ]
+    for item_id, spell_id in sorted(items.items()):
+        lines.append(f"    [{item_id}] = {spell_id},")
+    lines.append("})")
+    with open(os.path.join(path, "RecipeItems.lua"), "w", encoding="utf8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def read_recipe_items(path):
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf8") as f:
+        return {int(a): int(b) for a, b in re.findall(r"\[(\d+)\] = (\d+),", f.read())}
+
+
 def main():
     tools_dir = os.path.dirname(os.path.abspath(__file__))
     addon_dir = os.path.dirname(tools_dir)
+    data_dir = os.path.join(addon_dir, "Data")
     # Liegt das Addon im Spiel (.../World of Warcraft/_classic_beta_/Interface/AddOns/ProfessionTooltip),
     # ergibt sich der WoW-Ordner von selbst; im Repository über --wow-dir oder WOW_DIR angeben.
     default_wow_dir = os.environ.get("WOW_DIR") or os.path.abspath(os.path.join(addon_dir, "..", "..", "..", ".."))
@@ -215,6 +387,7 @@ def main():
     parser.add_argument("--cache", default=os.path.join(tools_dir, ".cache"))
     parser.add_argument("--refresh", action="store_true", help="Definitionen, Keys und Web-Listen neu laden")
     parser.add_argument("--offline", action="store_true", help="keine Web-Zugriffe (nur Client + Cache)")
+    parser.add_argument("--dry-run", action="store_true", help="nur prüfen und berichten, keine Dateien schreiben")
     args = parser.parse_args()
 
     if not os.path.exists(os.path.join(args.wow_dir, ".build.info")):
@@ -222,9 +395,11 @@ def main():
                  "Bitte mit --wow-dir oder der Umgebungsvariable WOW_DIR angeben, "
                  "z. B. WOW_DIR=\"$HOME/Games/World of Warcraft\"")
 
-    print(time.strftime("%Y-%m-%d %H:%M"), flush=True)
+    print(dim("Lese Spieldaten und Web-Listen …"), flush=True)
     web = WebCache(args.cache, args.refresh, args.offline)
     build_name, tables = load_client_tables(args.wow_dir, args.product, web)
+    trainer, trainer_files = trainer_scans(args.wow_dir)
+
     teaching_items = recipe_items(tables)
     item_ranks = {}
     for spell_id, rank in teaching_items.values():
@@ -234,10 +409,12 @@ def main():
     reagents_by_spell = {r["SpellID"]: r for r in tables["SpellReagents"].values()}
     names = tables["SpellName"]
 
+    report, recipe_rows, total_changes = [], [], 0
     for skill_line, (file_name, web_name) in PROFESSIONS.items():
         fdb = foreverdb_skills(web, web_name)
         available = seemeta_available(web, web_name)
-        recipes, sources, skipped = {}, {"item": 0, "foreverdb": 0, "unknown": 0}, 0
+        recipes, skipped = {}, 0
+        sources = {"Rezept-Item": 0, "Lehrer-Scan": 0, "foreverdb": 0, "unbekannt": 0}
         for ability in tables["SkillLineAbility"].values():
             spell_id = ability["Spell"]
             if ability["SkillLine"] != skill_line or spell_id not in reagents_by_spell:
@@ -256,15 +433,16 @@ def main():
             low, high = ability["TrivialSkillLineRankLow"], ability["TrivialSkillLineRankHigh"]
             levels = (low, (low + high + 1) // 2, high) if 0 < low <= high else None
 
+            # Quellen der Lernstufe, in dieser Reihenfolge; ohne Treffer 0 = unbekannt (nichts schätzen)
             fdb_skill = next((fdb[r] for r in refs if r in fdb), None)
             if spell_id in item_ranks:
-                skill, source = item_ranks[spell_id], "item"
+                skill, source = item_ranks[spell_id], "Rezept-Item"
+            elif spell_id in trainer:
+                skill, source = trainer[spell_id], "Lehrer-Scan"
             elif fdb_skill is not None:
                 skill, source = fdb_skill, "foreverdb"
-            elif ability["MinSkillLineRank"] > 1:
-                skill, source = ability["MinSkillLineRank"], "item"
-            else:  # Lehrer-Rezept ohne Daten: unbekannt, wird im Addon nicht angezeigt
-                skill, source = 0, "unknown"
+            else:
+                skill, source = 0, "unbekannt"
             sources[source] += 1
 
             name = names.get(spell_id, {}).get("Name_lang") or f"Spell {spell_id}"
@@ -272,30 +450,26 @@ def main():
                                  "created": item_id or 0, "levels": levels}
             all_recipes.add(spell_id)
 
-        write_data_file(os.path.join(addon_dir, "Data"), file_name, skill_line, build_name, recipes)
-        print(f"{file_name:15} {len(recipes):4} Rezepte  (Skill: {sources['item']} Rezept-Item, "
-              f"{sources['foreverdb']} foreverdb, {sources['unknown']} unbekannt; {skipped} nicht in Forever)",
-              flush=True)
+        stats = compare(read_data_file(os.path.join(data_dir, file_name + ".lua")), recipes)
+        total_changes += stats["neu"] + stats["entfernt"] + stats["geändert"]
+        report.append((file_name, stats))
+        if not args.dry_run:
+            write_data_file(data_dir, file_name, skill_line, build_name, recipes)
+        recipe_rows.append((file_name, len(recipes), sources, skipped))
 
-    write_recipe_items(os.path.join(addon_dir, "Data"), build_name,
-                       {item: spell for item, (spell, _) in teaching_items.items() if spell in all_recipes})
+    items = {item: spell for item, (spell, _) in teaching_items.items() if spell in all_recipes}
+    old_items = read_recipe_items(os.path.join(data_dir, "RecipeItems.lua"))
+    item_stats = {"neu": len(set(items) - set(old_items)), "entfernt": len(set(old_items) - set(items)),
+                  "geändert": sum(1 for i in set(items) & set(old_items) if items[i] != old_items[i])}
+    item_stats.update({kind: 0 for kind in CHANGE_KINDS})
+    total_changes += item_stats["neu"] + item_stats["entfernt"] + item_stats["geändert"]
+    report.append(("RecipeItems", item_stats))
+    if not args.dry_run:
+        write_recipe_items(data_dir, build_name, items)
 
-
-def write_recipe_items(path, build_name, items):
-    lines = [
-        "-- Data/RecipeItems.lua",
-        f"-- Automatisch erzeugt von Tools/build_data.py aus dem Client ({build_name}).",
-        "local _, ns = ...",
-        "",
-        "-- [Rezept-Item] = gelehrter Spell",
-        "ns.RegisterRecipeItems({",
-    ]
-    for item_id, spell_id in sorted(items.items()):
-        lines.append(f"    [{item_id}] = {spell_id},")
-    lines.append("})")
-    with open(os.path.join(path, "RecipeItems.lua"), "w", encoding="utf8") as f:
-        f.write("\n".join(lines) + "\n")
-    print(f"RecipeItems     {len(items):4} Rezept-Items", flush=True)
+    print_header(build_name, len(trainer), trainer_files, args.dry_run)
+    print_recipe_table(recipe_rows)
+    print_report(report, total_changes, len(items), args.dry_run)
 
 
 if __name__ == "__main__":
