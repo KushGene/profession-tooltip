@@ -10,7 +10,7 @@ Is that stack of *Light Leather*, *Copper Bar* or *Peacebloom* worth keeping, or
 the Auction House? Hover over it and you know.
 
 **Download:** [CurseForge](https://www.curseforge.com/wow/addons/profession-tooltip) ·
-Wago · [GitHub Releases](https://github.com/KushGene/profession-tooltip/releases)
+[Wago](https://addons.wago.io/addons/profession-tooltip-recipes-reagents-for-all-professions) · [GitHub Releases](https://github.com/KushGene/profession-tooltip/releases)
 
 ## Features
 
