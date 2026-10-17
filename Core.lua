@@ -95,6 +95,7 @@ local DEFAULTS = {
     minimap = { show = true, angle = 200 },
     legacyCheck = true,            -- beim Login auf CookingTooltip/AlchemyTooltip hinweisen
     characters = {},               -- accountweit: ["Name-Realm"] = { class, professions, known }
+    trainerSkills = {},            -- accountweit, vom Lehrer-Scan: [spellID] = benötigte Stufe
 }
 
 local CHAR_DEFAULTS = {

@@ -39,6 +39,7 @@ Data\RecipeItems.lua
 
 Characters.lua
 Scanner.lua
+Trainer.lua
 Tooltip.lua
 Legacy.lua
 UI\Widgets.lua

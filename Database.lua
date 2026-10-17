@@ -51,6 +51,17 @@ function ns.GetRecipeSkill(recipe)
     return recipe[SKILL] or 0
 end
 
+-- Benötigte Stufe zum Erlernen: aus den Daten oder – falls niedriger bzw. unbekannt – aus dem
+-- Lehrer-Scan (Lehrer-Daten stehen nicht in den Spieldateien). 0 = unbekannt.
+function ns.GetRequiredSkill(spellID, recipe)
+    local skill = recipe[SKILL] or 0
+    local trainer = ns.db.trainerSkills[spellID]
+    if trainer and (skill == 0 or trainer < skill) then
+        return trainer
+    end
+    return skill
+end
+
 function ns.GetRecipeName(spellID, recipe)
     return ns.GetSpellName(spellID) or recipe[NAME]
 end

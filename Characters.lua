@@ -73,7 +73,7 @@ end
 function ns.GetAltsAbleToLearn(spellID)
     local recipe, professionID = ns.GetRecipe(spellID)
     if not recipe then return nil end
-    local skill = ns.GetRecipeSkill(recipe)
+    local skill = ns.GetRequiredSkill(spellID, recipe)
     local names
     for key, entry in pairs(ns.db.characters) do
         local info = entry.professions and entry.professions[professionID]

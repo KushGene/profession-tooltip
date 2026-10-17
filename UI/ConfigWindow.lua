@@ -279,7 +279,7 @@ local function BuildGeneralTab(page)
         for _ in pairs(professions) do professionCount = professionCount + 1 end
         stats:SetText(recipes > 0 and string.format(L["SCAN_STATS"], recipes, professionCount) or L["SCAN_NONE"])
         scanNotice:SetText(GetScanNotice() or "")
-        dbInfo:SetText(string.format(L["DATA_INFO"], ns.GetDatabaseStats()))
+        dbInfo:SetText(string.format(L["DATA_INFO"], ns.GetDatabaseStats()) .. "\n" .. string.format(L["TRAINER_INFO"], ns.GetTrainerSkillCount()))
     end
     col:Add(item, 150)
 

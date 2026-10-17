@@ -102,7 +102,7 @@ local function PassesUnknownFilter(spellID, rank)
     if filter == "all" or not rank then return true end
     local recipe = ns.GetRecipe(spellID)
     if filter == "learnable" then
-        local skill = ns.GetRecipeSkill(recipe)
+        local skill = ns.GetRequiredSkill(spellID, recipe)
         return skill == 0 or skill <= rank -- unbekannte Lernstufe nicht ausfiltern
     end
     -- "noGray": Rezepte, die für mich bereits grau wären, ausblenden
@@ -153,7 +153,7 @@ local function FormatRecipeLine(spellID, itemID, difficulty, professionRank)
         text = text .. " " .. Colorize(crafts > 0 and "ff80c0ff" or COLOR_HINT, string.format(L["ENOUGH_FOR"], crafts))
     end
 
-    local skill = ns.GetRecipeSkill(recipe) -- 0 = unbekannt (Lehrer-Rezept ohne Daten)
+    local skill = ns.GetRequiredSkill(spellID, recipe) -- 0 = unbekannt (Lehrer-Rezept ohne Daten)
     if skill > 0 and db.showSkill and (not difficulty or db.showSkillKnown) then
         -- Rot, wenn die eigene Berufsstufe für ein ungelerntes Rezept noch nicht reicht
         local tooHigh = not difficulty and professionRank and professionRank < skill
@@ -228,7 +228,7 @@ local function AddCraftedSection(lines, itemID)
             local name = ns.GetRecipeName(spellID, recipe) or ("#" .. spellID)
             local text = Colorize(COLOR_HINT, L["CRAFTED_BY"]) .. " " .. Icon(ns.GetProfession(professionID), 14) .. " "
                 .. Colorize(difficulty and DIFFICULTY_COLORS[difficulty] or COLOR_UNKNOWN, name)
-            local skill = ns.GetRecipeSkill(recipe)
+            local skill = ns.GetRequiredSkill(spellID, recipe)
             if skill > 0 and ns.db.showSkill then
                 text = text .. " " .. Colorize(COLOR_UNKNOWN, "(" .. skill .. ")")
             end
