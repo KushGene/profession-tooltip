@@ -12,5 +12,6 @@ manual-changelog:
 ignore:
   - Tools
   - README.md
+  - DEVELOPMENT.md
   - CHANGELOG.md
   - .release-notes.md

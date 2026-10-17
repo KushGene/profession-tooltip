@@ -1,110 +1,68 @@
-# Profession Tooltip (WoW: Forever)
+# Profession Tooltip
 
-Shows in the item tooltip which recipes of your professions use an ingredient, whether you know
-them (difficulty color) and the skill they require. Successor of Cooking Tooltip and Alchemy
-Tooltip, covering all professions of WoW: Forever (interface 16001).
+**All your professions. One tooltip.** – for WoW: Forever
 
-Commands: `/pt` or `/proftip` open the settings.
+Profession Tooltip shows in every item tooltip which recipes of your professions use that item,
+whether you already know them and which skill they require. It is the successor of
+**Cooking Tooltip** and **Alchemy Tooltip** and covers all professions in one addon.
 
-Download: [CurseForge](https://www.curseforge.com/wow/addons/profession-tooltip)
+Is that stack of *Light Leather*, *Copper Bar* or *Peacebloom* worth keeping, or should it go to
+the Auction House? Hover over it and you know.
 
-## Structure
+**Download:** [CurseForge](https://www.curseforge.com/wow/addons/profession-tooltip) ·
+Wago · [GitHub Releases](https://github.com/KushGene/profession-tooltip/releases)
 
-| File | Purpose |
+## Features
+
+- **All professions:** Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking, Tailoring,
+  Mining (smelting), Cooking, First Aid and the camp recipes of Herbalism, Skinning and Fishing –
+  more than 2,200 recipes.
+- **Your professions first:** recipes of your own professions are listed in detail; other
+  professions appear as small icons, so you still see that an item is worth selling.
+- **Known or not:** learned recipes in their difficulty color (orange, yellow, green, gray),
+  updating live while you skill up. Unknown recipes in gray with the required skill – red if your
+  skill is still too low.
+- **Quantity:** how many of the item a recipe needs, e.g. ×4.
+- **No setup needed:** learned recipes are detected automatically. Opening each profession window
+  once gives the most accurate result; talking to a trainer fills in missing skill levels.
+- **Clean and fast:** long lists are shortened – hold **Shift** to see everything.
+
+### Optional extras
+
+All off by default and can be enabled in the settings:
+
+- **Alts:** which of your characters already know a recipe or could learn it
+- **Recipe items:** "Recipe: …" items show whether you know them, can learn them or need more skill
+- **Crafted items:** which recipe makes an item and which reagents it needs
+- **Stock:** "enough for 3" – how often you can craft with what is in your bags and bank
+- **Auction value** of the crafted item via Auctionator
+- **Filters** for unknown recipes: all, learnable now, or without gray ones
+
+## Usage
+
+Open the settings with `/pt` (or `/proftip`), the minimap button or *Options → AddOns*.
+A live preview shows every change instantly.
+
+| Tab | What you can change |
 |---|---|
-| `Core.lua` | Namespace, event bus (`ns.RegisterEvent`), internal messages (`ns.On`/`ns.Fire`), SavedVariables, spell name cache |
-| `Locales/*.lua` | Texts; `enUS` is the base, other languages only override what they translate |
-| `Professions.lua` | List of professions (skill line ID, icon, order), detection via `GetProfessions()` |
-| `Database.lua` | Recipe registry, indexes ingredient → recipes and item → recipes (built once, on demand) |
-| `Data/<Profession>.lua` | **Generated** recipe data, one file per profession |
-| `Data/RecipeItems.lua` | **Generated**: recipe item → taught spell |
-| `Characters.lua` | Account-wide snapshot per character (for "Known by" / "Learnable by") |
-| `Scanner.lua` | Reads learned recipes and their difficulty from the open profession window |
-| `Tooltip.lua` | Builds the tooltip sections (recipe item, crafted with, ingredient); lines are cached per item and Shift state |
-| `Legacy.lua` | Transition from Cooking Tooltip / Alchemy Tooltip (take over settings, disable old addons) |
-| `UI/Widgets.lua` | Reusable UI building blocks (`Column:Header/Check/Choice`) |
-| `UI/ConfigWindow.lua` | Settings window with tabs and live preview |
-| `UI/MinimapButton.lua`, `UI/SettingsPanel.lua` | Minimap button, entry under Options → AddOns |
-| `Tools/` | Data generator for `Data/*.lua` (not loaded by WoW, not part of the release) |
+| Tooltip | Recipe list, skill level, known/unknown sections, max. recipes per profession, filters, Shift behavior |
+| Design | Profession as icon and/or name, your skill (e.g. 70/150), known count (e.g. 16/82 known), spacing, hints |
+| Professions | Only your professions, icons of other professions, single professions on/off |
+| Extras | Alts, recipe items, crafted items, stock, auction value, character list |
+| General | Minimap button, scan data, import from Cooking Tooltip / Alchemy Tooltip |
 
-Data flow: data files register recipes → `Database` builds the ingredient index → `Scanner`
-remembers per character which spells are learned → `Tooltip` combines both.
-Changes to settings or scan data fire `SETTINGS_CHANGED` or `DATA_CHANGED`; the tooltip cache
-and the settings window listen to them.
+**Coming from Cooking Tooltip or Alchemy Tooltip?** Profession Tooltip detects them and offers
+to take over your settings and disable them, so nothing shows up twice.
 
-Recipe format in `Data/*.lua`:
+## Languages
 
-```lua
-[spellID] = { requiredSkill (0 = unknown), "Fallback name", { itemID, count, ... },
-               createdItem (0 = none), yellowAt, greenAt, grayAt },
-```
+English, German, French, Spanish, Russian, Portuguese, Korean, Simplified and Traditional Chinese.
 
-The tooltip shows the localized spell name from the client; the fallback name is only used if
-the client does not know the spell.
+## Feedback
 
-## Settings
+Found a bug or have an idea? Please open an [issue](https://github.com/KushGene/profession-tooltip/issues).
 
-By default only the core feature is enabled (recipe list of your own professions, skill level,
-quantity, icons of other professions). Everything else can be enabled in the window (`/pt`):
-
-| Tab | Content |
-|---|---|
-| Tooltip | Recipe list, known/unknown sections, max. recipes, filter for unknown recipes, Shift behavior |
-| Design | Profession line (icon/name), own skill, known count, spacing, hints |
-| Professions | Only own professions, icons of other professions, toggle single professions |
-| Extras | Alts, recipe items, crafted items, stock, auction value (Auctionator), character list |
-| General | Minimap button, scan data, transition from Cooking Tooltip / Alchemy Tooltip |
-
-## Detecting learned recipes
-
-1. **Scan:** When a profession window is opened, `Scanner.lua` reads all learned recipes.
-   Recipes that are not (yet) in the data are added together with their reagents.
-2. **Without scan:** `IsPlayerSpell(spellID)` reports learned recipes even if the window was
-   never opened.
-3. **Color:** Calculated from the current profession skill and the difficulty levels in the
-   data, so it stays up to date while skilling – without another scan.
-
-## Regenerating the data
-
-The recipe data is extracted from the WoW: Forever game files with `Tools/build_data.py` and
-shipped with the addon. After a game patch: run the script, bump the version, publish an
-update. See [Tools/README.md](Tools/README.md) for details.
-
-## Development
-
-To test in game, link the repository into the AddOns folder of the Forever client:
-
-```sh
-ln -s /path/to/ProfessionTooltip \
-      "/path/to/World of Warcraft/_classic_beta_/Interface/AddOns/ProfessionTooltip"
-```
-
-When the addon runs directly from the repository, the settings window shows the version "dev".
-Inside the repository the data generator needs to know the WoW folder:
-
-```sh
-WOW_DIR="/path/to/World of Warcraft" python3 Tools/build_data.py
-```
-
-## Release
-
-1. Update `CHANGELOG.md` and commit.
-2. Create and push a tag – the version in the TOC is taken from the tag automatically:
-   ```sh
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
-3. The GitHub Action (`.github/workflows/release.yml`) builds the zip with the BigWigs packager
-   (without `Tools/`) and publishes it as a GitHub release.
-
-Additional upload targets are set up once:
-
-| Target | Secret in the GitHub repo (Settings → Secrets → Actions) | Entry in `ProfessionTooltip.toc` |
-|---|---|---|
-| Wago | `WAGO_API_TOKEN` (wago.io → Account → API Keys) | `## X-Wago-ID: <ID>` |
-| CurseForge | `CF_API_KEY` (curseforge.com → Account → API Tokens) | `## X-Curse-Project-ID: <project ID>` |
-
-Alternatively, Wago can pick up the GitHub releases directly via its GitHub integration.
+Working on the addon itself? See [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## License
 
