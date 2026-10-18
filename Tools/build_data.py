@@ -6,7 +6,11 @@ The main source is the client's DB2 tables (read via casc.py/db2.py):
   SpellReagents     reagents and counts
   SpellEffect       crafted item
   SpellName         English recipe name (fallback in the addon)
-  ItemSparse + ItemEffect + ItemXItemEffect   required skill according to the recipe item
+  ItemEffect + ItemXItemEffect   recipe item -> taught recipe
+  ItemSparse        required skill according to the recipe item
+Plus the client's hotfix cache (Cache/ADB/enUS/DBCache.bin): the server sends changes and the
+data of items the client doesn't ship yet (e.g. recipe items of new content) only after login
+or when you come across them – so the cache, and with it the data, grows with playing.
 
 Optional web additions (skipped with --offline):
   Trainer scans  required skill for trainer recipes, recorded by the addon when visiting a trainer
@@ -115,22 +119,42 @@ def load_client_tables(wow_dir, product, web):
     if web.get(TACT_KEYS_URL, "tactkeys.txt") is None and not os.path.exists(keys_path):
         sys.exit("TACT-Keys fehlen (einmal ohne --offline ausführen)")
     storage = casc.Casc(wow_dir, product, casc.load_tact_keys(keys_path))
+    hotfixes, hotfix_path = load_hotfixes(wow_dir, storage.build_name)
 
     manifest = {e["tableName"]: e.get("db2FileDataID") for e in json.loads(web.get(MANIFEST_URL, "manifest.json"))}
     tables = {}
     for name in TABLES:
         definition = web.get(DBD_URL.format(name), f"dbd_{name}.dbd")
-        tables[name] = db2.read_table(storage.read_fdid(manifest[name]), definition)
-    return storage.build_name, tables
+        tables[name] = db2.read_table(storage.read_fdid(manifest[name]), definition, hotfixes)
+    return storage.build_name, tables, hotfix_path, sum(len(records) for records in hotfixes.values())
+
+
+def load_hotfixes(wow_dir, build_name):
+    """Hotfix cache of the installation that matches the client build (English, like the names)."""
+    match = re.search(r"(\d+)", build_name)
+    build = int(match[1]) if match else None
+    for path in sorted(glob.glob(os.path.join(wow_dir, "_*_", "Cache", "ADB", "enUS", "DBCache.bin"))):
+        with open(path, "rb") as f:
+            hotfixes = db2.read_hotfixes(f.read(), build)
+        if hotfixes:
+            return hotfixes, path
+    return {}, None
 
 
 def recipe_items(tables):
-    """Recipe items ("Recipe: ...") -> (taught spell, required skill)."""
+    """Recipe items ("Recipe: ...") -> (taught spell, required skill or None).
+    Many recipe items are missing from ItemSparse (the server sends their data only when you
+    come across them), but the link to the taught spell is there – so they count anyway,
+    just without a required skill. Only spells that are recipes are used later on."""
     effects, items = tables["ItemEffect"], tables["ItemSparse"]
     result = {}
     for link in tables["ItemXItemEffect"].values():
         effect, item = effects.get(link["ItemEffectID"]), items.get(link["ItemID"])
-        if effect and item and effect["TriggerType"] == TRIGGER_LEARN_SPELL and item["RequiredSkill"]:
+        if not effect or effect["TriggerType"] != TRIGGER_LEARN_SPELL:
+            continue
+        if item is None:
+            result[link["ItemID"]] = (effect["SpellID"], None)
+        elif item["RequiredSkill"]:
             result[link["ItemID"]] = (effect["SpellID"], item["RequiredSkillRank"])
     return result
 
@@ -265,12 +289,14 @@ def heading(text):
     print(dim("─" * 78))
 
 
-def print_header(build_name, trainer_count, trainer_files, dry_run):
+def print_header(build_name, hotfix_path, hotfix_count, trainer_count, trainer_files, dry_run):
     title = "Profession Tooltip – Datenprüfung" + (" (Testlauf, es wird nichts geschrieben)" if dry_run else "")
     print(bold(title))
     print(dim("═" * 78))
     print(f"  {'Datum':14} {time.strftime('%d.%m.%Y %H:%M')}")
     print(f"  {'Spielclient':14} {build_name}")
+    print(f"  {'Hotfixes':14} " + (f"{hotfix_count} Einträge aus {hotfix_path}" if hotfix_path
+                                    else yellow("keine passende DBCache.bin gefunden")))
     print(f"  {'Lehrer-Scans':14} {trainer_count} Rezepte aus {trainer_files} SavedVariables-Datei(en)")
 
 
@@ -397,13 +423,14 @@ def main():
 
     print(dim("Lese Spieldaten und Web-Listen …"), flush=True)
     web = WebCache(args.cache, args.refresh, args.offline)
-    build_name, tables = load_client_tables(args.wow_dir, args.product, web)
+    build_name, tables, hotfix_path, hotfix_count = load_client_tables(args.wow_dir, args.product, web)
     trainer, trainer_files = trainer_scans(args.wow_dir)
 
     teaching_items = recipe_items(tables)
     item_ranks = {}
     for spell_id, rank in teaching_items.values():
-        item_ranks.setdefault(spell_id, rank)
+        if rank is not None:
+            item_ranks.setdefault(spell_id, rank)
     all_recipes = set()
     created = created_items(tables)
     reagents_by_spell = {r["SpellID"]: r for r in tables["SpellReagents"].values()}
@@ -467,7 +494,7 @@ def main():
     if not args.dry_run:
         write_recipe_items(data_dir, build_name, items)
 
-    print_header(build_name, len(trainer), trainer_files, args.dry_run)
+    print_header(build_name, hotfix_path, hotfix_count, len(trainer), trainer_files, args.dry_run)
     print_recipe_table(recipe_rows)
     print_report(report, total_changes, len(items), args.dry_run)
 

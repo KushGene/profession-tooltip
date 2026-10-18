@@ -89,9 +89,47 @@ function ns.GetReagentCount(recipe, itemID)
     return 0
 end
 
+-- Recipe item subclass -> profession (item class 9 = Recipe)
+local ITEM_CLASS_RECIPE = 9
+local RECIPE_SUBCLASS_PROFESSION = {
+    [1] = 165, [2] = 197, [3] = 202, [4] = 164, [5] = 185, [6] = 171, [7] = 129, [8] = 333, [9] = 356,
+}
+local matchedByName = {}    -- [recipe item] = taught spell, or false if no recipe matches
+
+-- Fallback for recipe items missing from the data (e.g. new content after a patch):
+-- "Pattern: Linen Cloak" -> recipe "Linen Cloak" of the same profession
+local function FindSpellByItemName(itemID)
+    local _, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(itemID)
+    if not classID then return nil end -- unknown to the client so far, try again next time
+    local professionID = classID == ITEM_CLASS_RECIPE and RECIPE_SUBCLASS_PROFESSION[subclassID]
+    if not professionID then return false end
+    local itemName = C_Item.GetItemNameByID(itemID)
+    if not itemName then return nil end -- item data not loaded yet, try again next time
+    local recipeName = itemName:match("^.-:%s*(.+)$") or itemName:match("^.-：%s*(.+)$")
+    if not recipeName then return false end
+    for spellID, recipe in pairs(recipes) do
+        if recipeProfession[spellID] == professionID and ns.GetRecipeName(spellID, recipe) == recipeName then
+            return spellID
+        end
+    end
+    for spellID, extra in pairs(ns.char.extra) do
+        if extra.profession == professionID and ns.GetRecipeName(spellID, extra) == recipeName then
+            return spellID
+        end
+    end
+    return false
+end
+
 -- Spell taught by a recipe item (or nil)
 function ns.GetSpellTaughtBy(itemID)
-    return recipeItems[itemID]
+    local spellID = recipeItems[itemID]
+    if spellID then return spellID end
+    local matched = matchedByName[itemID]
+    if matched == nil then
+        matched = FindSpellByItemName(itemID)
+        matchedByName[itemID] = matched
+    end
+    return matched or nil
 end
 
 local function AddToIndex(index, itemID, spellID)

@@ -6,11 +6,15 @@ Usage:
         ...
 Arrays are returned as lists. Sections whose content was encrypted and not readable
 (filled with zeros) are skipped.
+
+Hotfixes from the client's DBCache.bin (read_hotfixes) can be passed to read_table; they
+add, replace or remove rows.
 """
 import re
 import struct
 
 STORAGE_NONE, STORAGE_BITPACKED, STORAGE_COMMON, STORAGE_PALLET, STORAGE_PALLET_ARRAY, STORAGE_BITPACKED_SIGNED = range(6)
+HOTFIX_VALID, HOTFIX_REMOVED = 1, 2
 
 
 # ----------------------------------------------------------------------------
@@ -70,10 +74,10 @@ def _signed(value, bits):
     return value - (1 << bits) if value & (1 << (bits - 1)) else value
 
 
-def read_table(data, dbd_text):
+def read_table(data, dbd_text, hotfixes=None):
     if data[:4] != b"WDC5":
         raise ValueError("nur WDC5 wird unterstützt")
-    (record_count, field_count, record_size, string_table_size, _table_hash, layout_hash,
+    (record_count, field_count, record_size, string_table_size, table_hash, layout_hash,
      _min_id, _max_id, _locale, flags, id_index, _total_fields, _bitpacked_offset,
      _lookup_columns, storage_info_size, common_size, pallet_size, section_count
      ) = struct.unpack("<9IHH7I", data[136:204])
@@ -166,7 +170,7 @@ def read_table(data, dbd_text):
                 else:
                     record_id = _read_bits(record, id_offset_bits, id_size_bits)
             if sparse:
-                row = _read_sparse_record(data, record_offset, columns)
+                row, _ = _read_sparse_record(data, record_offset, columns)
                 if id_column is not None:
                     row[id_column.name] = record_id
                 rows[record_id] = row
@@ -219,12 +223,61 @@ def read_table(data, dbd_text):
                     copy[id_column.name] = new_id
                 rows[new_id] = copy
         virtual_record += count * record_size
+    if hotfixes:
+        _apply_hotfixes(rows, hotfixes.get(table_hash, {}), parse_dbd(dbd_text, layout_hash))
     return rows
+
+
+# ----------------------------------------------------------------------------
+# Hotfixes (DBCache.bin)
+# ----------------------------------------------------------------------------
+def read_hotfixes(data, build=None):
+    """DBCache.bin -> {table hash: {record ID: record bytes, or None if removed}}.
+    The server sends hotfixes – and data of items the client doesn't have yet – after login
+    or when you come across them; the file therefore grows with playing. Returns {} if the
+    file doesn't match the format or (with build) the client build."""
+    if data[:4] != b"XFTH" or len(data) < 44:
+        return {}
+    version, file_build = struct.unpack("<II", data[4:12])
+    if version != 9 or (build is not None and file_build != build):
+        return {}
+    latest = {}  # (table hash, record ID) -> (push ID, status, bytes)
+    pos = 44
+    while pos + 32 <= len(data) and data[pos:pos + 4] == b"XFTH":
+        _region, push_id, _unique_id, table_hash, record_id, size, status = struct.unpack(
+            "<iiIIIiB", data[pos + 4:pos + 29])
+        pos += 32
+        key = (table_hash, record_id)
+        if status in (HOTFIX_VALID, HOTFIX_REMOVED) and push_id >= latest.get(key, (push_id,))[0]:
+            latest[key] = (push_id, status, data[pos:pos + size])
+        pos += size
+    hotfixes = {}
+    for (table_hash, record_id), (_push, status, record) in latest.items():
+        hotfixes.setdefault(table_hash, {})[record_id] = record if status == HOTFIX_VALID else None
+    return hotfixes
+
+
+def _apply_hotfixes(rows, records, all_columns):
+    """Hotfix records are stored unpacked like sparse records; a non-inline relation field
+    (e.g. SpellEffect.SpellID) follows as uint32 at the end."""
+    columns = [c for c in all_columns if c.inline]
+    id_column = next((c for c in all_columns if c.is_id), None)
+    relation = next((c for c in all_columns if not c.inline and not c.is_id), None)
+    for record_id, record in records.items():
+        if record is None:
+            rows.pop(record_id, None)
+            continue
+        row, pos = _read_sparse_record(record, 0, columns)
+        if relation is not None and len(record) >= pos + 4:
+            row[relation.name] = struct.unpack("<I", record[pos:pos + 4])[0]
+        if id_column is not None:
+            row[id_column.name] = record_id
+        rows[record_id] = row
 
 
 def _read_sparse_record(data, offset, columns):
     """Sparse tables (e.g. ItemSparse): fields are stored uncompressed one after another,
-    strings are embedded directly – so read sequentially."""
+    strings are embedded directly – so read sequentially. Returns (row, end position)."""
     row = {}
     pos = offset
     for column in columns:
@@ -244,7 +297,7 @@ def _read_sparse_record(data, offset, columns):
             values.append(value)
             pos += size
         row[column.name] = values if column.array > 1 else values[0]
-    return row
+    return row, pos
 
 
 def _read_cstring(data, offset):

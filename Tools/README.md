@@ -45,13 +45,30 @@ Requires only Python 3, no extra packages. A run takes about 15 seconds.
 | Value | Source |
 |---|---|
 | Recipes, reagents, quantities, difficulty levels, names, crafted item | Game client |
-| Required skill | Recipe item in the game client |
+| Recipe item → taught recipe | Game client (`ItemEffect`), also for items whose other data the client doesn't have yet |
+| Required skill | Recipe item in the game client (`ItemSparse`), if the client has its data |
+| Hotfixes | Hotfix cache of the client (`_classic_beta_/Cache/ADB/enUS/DBCache.bin`), applied on top of the tables |
 | Required skill of trainer recipes | Not in the client. 1) Trainer scans: the addon records the skill whenever you talk to a profession trainer (stored in your SavedVariables, read automatically from the WoW folder). 2) foreverdb.net. Without a match `0` = unknown, nothing is estimated |
 | Available in Forever? | Classic recipes (spell ID < 30000), Forever recipes (≥ 1229000) and everything listed on seemeta.com. This filters out Season of Discovery recipes that exist in the client but cannot be learned in Forever |
 
 Also downloaded and cached for 7 days: the table definitions
 (github.com/wowdev/WoWDBDefs) and the public key list for encrypted game data
 (github.com/wowdev/TACTKeys).
+
+## Hotfix cache and data that is still missing
+
+The client doesn't ship the data of every item. The server sends it, together with hotfixes,
+after login or when you come across an item, and the client stores it in `DBCache.bin`. The
+cache is used automatically if its build matches the client (shown under "Hotfixes" in the
+output). The more you have played, the more required skills of recipe items are known; running
+the script again later can fill in more of them.
+
+Recipe items whose data the client doesn't have yet are still included (the link to the taught
+recipe is always there), only their required skill stays unknown unless a trainer scan or
+foreverdb knows it.
+
+What the client ships encrypted with a key that is not public yet can't be read at all; such
+recipes are missing until the key is published (`--refresh`) or the content goes live.
 
 ## Reading the output
 
