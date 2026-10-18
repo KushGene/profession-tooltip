@@ -3,7 +3,7 @@
 Changes for players, newest version first. On release, only the section of the released
 version is posted as "What's new" on CurseForge, Wago and GitHub.
 
-## Unreleased
+## 1.0.2 – 2026-10-18
 
 ### Fixed
 - 130 more recipe items (plans, patterns, schematics, recipes) are recognized, e.g. Ironforge Chain, the Stormcloth patterns, the Gnomish and Goblin schematics and many new Forever recipes such as Veteran's Chain Shirt or Prowler Steak
