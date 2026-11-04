@@ -20,14 +20,15 @@ Optional web additions (skipped with --offline):
                  recipes are available in Forever, to filter out Season of Discovery recipes
                  that are in the client but cannot be learned in Forever
 
-If a host fails repeatedly, it is skipped for the rest of the run and the cache is used.
+Also fetched from the web: table definitions from WoWDBDefs and the public TACT key list
+(to decrypt new content).
 
-Also fetched from the web (cached): table definitions from WoWDBDefs and the
-public TACT key list (to decrypt new content).
+Every run fetches all web data again; the cache is only a fallback. If a host fails repeatedly,
+it is skipped for the rest of the run and the cache is used. If pages are missing even from the
+cache, nothing is written (the data would be incomplete).
 
 Usage:
   python3 Tools/build_data.py              # normal run
-  python3 Tools/build_data.py --refresh    # reload definitions, keys and web lists
   python3 Tools/build_data.py --offline    # client data only (+ existing cache)
   python3 Tools/build_data.py --dry-run    # check only: shows what would change
 """
@@ -74,7 +75,6 @@ FOREVER_MIN_SPELL = 1229000
 
 EFFECT_CREATE_ITEM = 24
 TRIGGER_LEARN_SPELL = 6
-DAY = 86400
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0"
 WEB_TIMEOUT = 20
 MAX_HOST_FAILURES = 2  # after that many failed requests a host is skipped for the rest of the run
@@ -88,21 +88,19 @@ TACT_KEYS_URL = "https://raw.githubusercontent.com/wowdev/TACTKeys/master/WoW.tx
 # Web cache
 # ----------------------------------------------------------------------------
 class WebCache:
-    def __init__(self, cache_dir, refresh, offline):
-        self.cache_dir, self.refresh, self.offline = cache_dir, refresh, offline
-        self.failures = {}  # host -> number of failed requests
+    def __init__(self, cache_dir, offline):
+        self.cache_dir, self.offline = cache_dir, offline
+        self.failures = {}  # host -> number of consecutive failed requests
         self.fallbacks = {}  # host -> number of requests answered from the (outdated) cache
+        self.missing = {}  # host -> number of requests that failed and weren't in the cache either
         os.makedirs(cache_dir, exist_ok=True)
 
-    def get(self, url, key, max_age=7 * DAY):
-        """Load a file from the cache or fetch it again; None if offline/unreachable and not present."""
+    def get(self, url, key):
+        """Fetch a file (and cache it); falls back to the cache if offline or unreachable, else None."""
         path = os.path.join(self.cache_dir, key)
         cached = os.path.exists(path)
-        fresh = cached and time.time() - os.path.getmtime(path) < max_age
-        if cached and (self.offline or (fresh and not self.refresh)):
-            return self._read(path)
         if self.offline:
-            return None
+            return self._read(path) if cached else None
         host = urllib.parse.urlsplit(url).hostname
         if self.failures.get(host, 0) < MAX_HOST_FAILURES:
             try:
@@ -121,12 +119,13 @@ class WebCache:
                 time.sleep(0.5)
                 return body
         if not cached:
+            self.missing[host] = self.missing.get(host, 0) + 1
             return None
         self.fallbacks[host] = self.fallbacks.get(host, 0) + 1
         return self._read(path)
 
-    def unreachable_hosts(self):
-        return sorted(host for host, count in self.failures.items() if count >= MAX_HOST_FAILURES)
+    def failed_hosts(self):
+        return sorted(set(self.fallbacks) | set(self.missing))
 
     @staticmethod
     def _read(path):
@@ -317,9 +316,9 @@ def print_header(build_name, hotfix_path, hotfix_count, trainer_count, trainer_f
     print(f"  {'Hotfixes':14} " + (f"{hotfix_count} Einträge aus {hotfix_path}" if hotfix_path
                                     else yellow("keine passende DBCache.bin gefunden")))
     print(f"  {'Lehrer-Scans':14} {trainer_count} Rezepte aus {trainer_files} SavedVariables-Datei(en)")
-    for host in web.unreachable_hosts():
+    for host in web.failed_hosts():
         print(f"  {'Nicht erreicht':14} " + yellow(f"{host} – {web.fallbacks.get(host, 0)} Seite(n) aus dem Cache, "
-                                                  "fehlende Seiten übersprungen"))
+                                                  f"{web.missing.get(host, 0)} fehlen"))
 
 
 def print_recipe_table(rows):
@@ -340,7 +339,7 @@ def print_recipe_table(rows):
                f"{totals['foreverdb']:>10}   {totals['unbekannt']:>9}  {totals['skipped']:>8}"))
 
 
-def print_report(rows, total_changes, item_count, dry_run):
+def print_report(rows, total_changes, item_count, dry_run, incomplete):
     print(f"\n  Rezept-Items (\"Recipe: …\"): {item_count}")
     heading("Änderungen gegenüber den vorhandenen Daten")
     changed = [(name, st) for name, st in rows if st["neu"] or st["entfernt"] or st["geändert"]]
@@ -353,7 +352,13 @@ def print_report(rows, total_changes, item_count, dry_run):
             print(f"  {DISPLAY_NAMES.get(name, name):18} {st['neu']:>5} {st['entfernt']:>9} {st['geändert']:>9}   {dim(detail)}")
 
     heading("Ergebnis")
-    if total_changes == 0:
+    if incomplete:
+        print("  " + yellow(f"✘ Web-Daten unvollständig ({', '.join(incomplete)} nicht erreichbar, Seiten fehlen "
+                            "auch im Cache) – die Änderungen oben sind nicht verlässlich."))
+        print("  " + ("Testlauf, es wurde nichts geschrieben." if dry_run else
+                      "Es wurde nichts geschrieben, die vorhandenen Daten bleiben unverändert."))
+        print("  Später erneut ausführen.")
+    elif total_changes == 0:
         print("  " + green("✔ Ein Addon-Update ist nicht nötig."))
     elif dry_run:
         print("  " + yellow(f"➜ {total_changes} Änderung(en) – ein Addon-Update lohnt sich."))
@@ -433,7 +438,6 @@ def main():
                         help="WoW-Installationsverzeichnis (mit .build.info); alternativ Umgebungsvariable WOW_DIR")
     parser.add_argument("--product", default=PRODUCT)
     parser.add_argument("--cache", default=os.path.join(tools_dir, ".cache"))
-    parser.add_argument("--refresh", action="store_true", help="Definitionen, Keys und Web-Listen neu laden")
     parser.add_argument("--offline", action="store_true", help="keine Web-Zugriffe (nur Client + Cache)")
     parser.add_argument("--dry-run", action="store_true", help="nur prüfen und berichten, keine Dateien schreiben")
     args = parser.parse_args()
@@ -444,7 +448,7 @@ def main():
                  "z. B. WOW_DIR=\"$HOME/Games/World of Warcraft\"")
 
     print(dim("Lese Spieldaten und Web-Listen …"), flush=True)
-    web = WebCache(args.cache, args.refresh, args.offline)
+    web = WebCache(args.cache, args.offline)
     build_name, tables, hotfix_path, hotfix_count = load_client_tables(args.wow_dir, args.product, web)
     trainer, trainer_files = trainer_scans(args.wow_dir)
 
@@ -458,7 +462,7 @@ def main():
     reagents_by_spell = {r["SpellID"]: r for r in tables["SpellReagents"].values()}
     names = tables["SpellName"]
 
-    report, recipe_rows, total_changes = [], [], 0
+    report, recipe_rows, outputs, total_changes = [], [], [], 0
     for skill_line, (file_name, web_name) in PROFESSIONS.items():
         fdb, available = foreverdb_recipes(web, web_name)
         recipes, skipped = {}, 0
@@ -501,8 +505,7 @@ def main():
         stats = compare(read_data_file(os.path.join(data_dir, file_name + ".lua")), recipes)
         total_changes += stats["neu"] + stats["entfernt"] + stats["geändert"]
         report.append((file_name, stats))
-        if not args.dry_run:
-            write_data_file(data_dir, file_name, skill_line, build_name, recipes)
+        outputs.append((file_name, skill_line, recipes))
         recipe_rows.append((file_name, len(recipes), sources, skipped))
 
     items = {item: spell for item, (spell, _) in teaching_items.items() if spell in all_recipes}
@@ -512,12 +515,19 @@ def main():
     item_stats.update({kind: 0 for kind in CHANGE_KINDS})
     total_changes += item_stats["neu"] + item_stats["entfernt"] + item_stats["geändert"]
     report.append(("RecipeItems", item_stats))
-    if not args.dry_run:
+
+    # Missing web pages would drop learning ranks and recipes – then keep the existing data
+    incomplete = sorted(web.missing)
+    if not args.dry_run and not incomplete:
+        for file_name, skill_line, recipes in outputs:
+            write_data_file(data_dir, file_name, skill_line, build_name, recipes)
         write_recipe_items(data_dir, build_name, items)
 
     print_header(build_name, hotfix_path, hotfix_count, len(trainer), trainer_files, web, args.dry_run)
     print_recipe_table(recipe_rows)
-    print_report(report, total_changes, len(items), args.dry_run)
+    print_report(report, total_changes, len(items), args.dry_run, incomplete)
+    if incomplete:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

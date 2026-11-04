@@ -19,13 +19,13 @@ the installed WoW: Forever client. Not loaded by WoW and excluded from releases 
 3. Check the output (recipes per profession, see below), `/reload` in game and test briefly.
 4. Commit the changed data, update `CHANGELOG.md` and publish a release (see the main README).
 
-Requires only Python 3, no extra packages. A run takes about 15 seconds.
+Requires only Python 3, no extra packages. Every run fetches the web data again, so a run takes
+about a minute.
 
 ## Options
 
 | Option | Effect |
 |---|---|
-| `--refresh` | Reload the web data (see below) even if the cache is still fresh |
 | `--offline` | No internet; uses only the client and the existing cache |
 | `--dry-run` | Only report what would change, don't write any files |
 | `--wow-dir PATH` | WoW installation folder (alternatively the environment variable `WOW_DIR`) |
@@ -38,7 +38,7 @@ Requires only Python 3, no extra packages. A run takes about 15 seconds.
 | `build_data.py` | Main script: reads the tables and writes `Data/*.lua` and `Data/RecipeItems.lua` |
 | `casc.py` | Reads files from the local game storage (`World of Warcraft/Data`), including decryption |
 | `db2.py` | Reads the game tables (DB2/WDC5) |
-| `.cache/` | Downloaded helper data; can be deleted at any time and is recreated |
+| `.cache/` | Last downloaded web data, only used when a website is unreachable (or with `--offline`); can be deleted at any time and is recreated |
 
 ## Where does the data come from?
 
@@ -51,7 +51,7 @@ Requires only Python 3, no extra packages. A run takes about 15 seconds.
 | Required skill of trainer recipes | Not in the client. 1) Trainer scans: the addon records the skill whenever you talk to a profession trainer (stored in your SavedVariables, read automatically from the WoW folder). 2) foreverdb.net. Without a match `0` = unknown, nothing is estimated |
 | Available in Forever? | Classic recipes (spell ID < 30000), Forever recipes (≥ 1229000) and everything listed in the recipe lists on foreverdb.net. This filters out Season of Discovery recipes that exist in the client but cannot be learned in Forever |
 
-Also downloaded and cached for 7 days: the table definitions
+Also downloaded on every run: the table definitions
 (github.com/wowdev/WoWDBDefs) and the public key list for encrypted game data
 (github.com/wowdev/TACTKeys).
 
@@ -68,7 +68,7 @@ recipe is always there), only their required skill stays unknown unless a traine
 foreverdb knows it.
 
 What the client ships encrypted with a key that is not public yet can't be read at all; such
-recipes are missing until the key is published (`--refresh`) or the content goes live.
+recipes are missing until the key is published (the next run picks it up) or the content goes live.
 
 ## Reading the output
 
@@ -80,15 +80,18 @@ Alchemy          183 Rezepte  (Lernstufe: 137 Rezept-Item, 2 Lehrer-Scan, 30 for
 - **nicht in Forever:** present in the client but filtered out (mostly Season of Discovery)
 
 If "unbekannt" rises noticeably after a patch, foreverdb probably doesn't have the new trainer
-recipes yet. Simply run again later with `--refresh`.
+recipes yet. Simply run again later.
 
 ## Troubleshooting
 
 - **`Layout … nicht in der DBD-Definition`:** WoWDBDefs doesn't know the new client build yet.
-  Usually added within hours to days; then run again with `--refresh`.
+  Usually added within hours to days; then run again.
 - **`Produkt … nicht in .build.info`:** adjust `--product` (column "Product" in `.build.info`).
 - **Suddenly far fewer recipes:** new content may be encrypted with a key that is not public yet.
-  Try again later with `--refresh` (updates the key list).
+  Try again later (every run updates the key list).
 - **`… wird für diesen Lauf übersprungen`:** a website failed twice in a row. The script stops
   contacting it, uses the cached pages instead and lists the host under "Nicht erreicht" in the
-  report. Run again later with `--refresh` to update the data.
+  report. Run again later to get current data.
+- **`Web-Daten unvollständig … es wurde nichts geschrieben`:** a website was unreachable and some
+  of its pages are not in the cache either. Writing would lose learning ranks and recipes, so the
+  existing `Data/*.lua` stay unchanged (exit code 1). Run again later.
