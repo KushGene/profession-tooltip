@@ -3,6 +3,18 @@
 Changes for players, newest version first. On release, only the section of the released
 version is posted as "What's new" on CurseForge, Wago and GitHub.
 
+## Unreleased
+
+### Improved
+- Recipe data updated for the WoW: Forever launch build (1.60.1.70790): 9 new recipes such as Enchant Boots - Speed and the Tinker schematics, 10 new recipe items and corrected skill levels for 39 recipes
+
+### Fixed
+- Visiting a profession trainer can no longer leave the trainer window's filters changed
+- Learned recipes are detected with the current spell API instead of a deprecated one
+- Recipe items now respect the required skill reported by the trainer
+- Reagent names in tooltips appear as soon as the item data is loaded
+- Scanning no longer rebuilds all tooltips after every craft
+
 ## 1.0.2 – 2026-10-18
 
 ### Fixed
