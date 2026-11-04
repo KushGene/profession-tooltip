@@ -3,6 +3,13 @@
 Changes for players, newest version first. On release, only the section of the released
 version is posted as "What's new" on CurseForge, Wago and GitHub.
 
+## Unreleased
+
+### Fixed
+- Scanning a profession no longer removes learned recipes whose profession is unknown
+- Trainer scans no longer assign skill requirements to an arbitrary recipe when multiple recipes share a name
+- The character list in the Extras tab now has page buttons so every saved character can be removed
+
 ## 1.0.3 – 2026-11-05
 
 ### Improved

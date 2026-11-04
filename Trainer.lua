@@ -6,7 +6,7 @@ local _, ns = ...
 
 local SERVICE_TYPES = { "available", "unavailable", "used" }
 
-local nameIndex -- [professionID] = { [recipe name] = spellID }
+local nameIndex -- [professionID] = { [recipe name] = spellID or false (ambiguous) }
 
 local function BuildNameIndex()
     nameIndex = {}
@@ -16,7 +16,12 @@ local function BuildNameIndex()
             names = {}
             nameIndex[professionID] = names
         end
-        names[ns.GetRecipeName(spellID, recipe)] = spellID
+        local name = ns.GetRecipeName(spellID, recipe)
+        if names[name] == nil then
+            names[name] = spellID
+        elseif names[name] ~= spellID then
+            names[name] = false
+        end
     end)
 end
 
@@ -32,13 +37,16 @@ end
 local function GetServiceSpellID(index, name, professionID)
     if C_TooltipInfo and C_TooltipInfo.GetTrainerService then
         local data = C_TooltipInfo.GetTrainerService(index)
-        if data and data.id and ns.GetRecipe(data.id) then
-            return data.id
+        if data and data.id then
+            local recipe, profession = ns.GetRecipe(data.id)
+            if recipe and profession == professionID then return data.id end
         end
     end
     if not nameIndex then BuildNameIndex() end
     return nameIndex[professionID] and nameIndex[professionID][name]
 end
+
+ns.On("DATA_CHANGED", function() nameIndex = nil end)
 
 -- Make all offers visible (including unavailable/learned ones); returns: previous filters
 local function ShowAllServices()

@@ -53,7 +53,7 @@ local function Scan()
     local oldKnown = {}
     for spellID, difficulty in pairs(known) do
         local _, profession = ns.GetRecipe(spellID)
-        if profession == professionID or profession == nil then
+        if profession == professionID then
             oldKnown[spellID] = difficulty
             known[spellID] = nil
         end

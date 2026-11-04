@@ -209,19 +209,42 @@ local function BuildExtrasTab(page)
     for i = 1, MAX_CHARACTER_ROWS do
         rows[i] = CreateCharacterRow(page, col, i)
     end
-    local more = page:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    more:SetPoint("TOPLEFT", col.x, col.y - MAX_CHARACTER_ROWS * 22)
+    local previous = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
+    previous:SetSize(24, 20)
+    previous:SetText("<")
+    previous:SetPoint("TOPLEFT", col.x, col.y - MAX_CHARACTER_ROWS * 22)
+    local counter = page:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    counter:SetPoint("LEFT", previous, "RIGHT", 8, 0)
+    local nextButton = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
+    nextButton:SetSize(24, 20)
+    nextButton:SetText(">")
+    nextButton:SetPoint("LEFT", counter, "RIGHT", 8, 0)
 
+    local currentPage = 1
     local item = {}
     function item.Refresh()
         local characters = ns.GetCharacters()
+        local pageCount = math.max(1, math.ceil(#characters / MAX_CHARACTER_ROWS))
+        currentPage = math.min(currentPage, pageCount)
         for i, row in ipairs(rows) do
-            row.Set(characters[i])
+            row.Set(characters[(currentPage - 1) * MAX_CHARACTER_ROWS + i])
         end
-        local hidden = #characters - MAX_CHARACTER_ROWS
-        more:SetText(hidden > 0 and string.format(L["MORE_CHARACTERS"], hidden) or "")
+        previous:SetShown(pageCount > 1)
+        counter:SetShown(pageCount > 1)
+        nextButton:SetShown(pageCount > 1)
+        counter:SetText(currentPage .. " / " .. pageCount)
+        previous:SetEnabled(currentPage > 1)
+        nextButton:SetEnabled(currentPage < pageCount)
     end
-    col:Add(item, MAX_CHARACTER_ROWS * 22 + 16)
+    previous:SetScript("OnClick", function()
+        currentPage = math.max(1, currentPage - 1)
+        item.Refresh()
+    end)
+    nextButton:SetScript("OnClick", function()
+        currentPage = currentPage + 1
+        item.Refresh()
+    end)
+    col:Add(item, MAX_CHARACTER_ROWS * 22 + 24)
     return col
 end
 
