@@ -3,6 +3,10 @@
 Reads files by FileDataID from a local installation (Data/ directory), without
 external dependencies. Supports only what is needed to read DB2 tables:
 local indexes, BLTE (uncompressed/zlib), encoding and root file (MFST).
+DB2 tables exist once per locale in the root file; read_fdid prefers the enUS
+variant and falls back to the first variant that is actually stored locally
+(e.g. only deDE on a German installation) – Casc.locales records which locale
+flags were used per FileDataID.
 Encrypted BLTE blocks (Salsa20) are decrypted with known TACT keys; blocks with an
 unknown key are filled with zeros – as is common with other tools.
 """
@@ -204,8 +208,11 @@ class Encoding:
 
 
 def parse_root(data):
-    """FileDataID -> CKey (preferring enUS, without low-violence variants)."""
-    result, priority = {}, {}
+    """FileDataID -> [(CKey, locale flags), ...] ordered by preference:
+    enUS first, then other locales, then entries without a locale (stable within a rank).
+    Low-violence variants are skipped. Local storage usually contains only one locale's
+    data, so read_fdid takes the first candidate that is actually present."""
+    candidates = {}
     pos = 0
     if data[:4] == b"TSFM":
         header_size, version = struct.unpack("<II", data[4:12])
@@ -236,9 +243,16 @@ def parse_root(data):
         fdid = -1
         for i, delta in enumerate(deltas):
             fdid += delta + 1
-            if rank > priority.get(fdid, -1):
-                priority[fdid] = rank
-                result[fdid] = data[ckeys_pos + 16 * i:ckeys_pos + 16 * (i + 1)]
+            ckey = data[ckeys_pos + 16 * i:ckeys_pos + 16 * (i + 1)]
+            candidates.setdefault(fdid, []).append((rank, ckey, locale))
+    result = {}
+    for fdid, entries in candidates.items():
+        entries.sort(key=lambda e: e[0], reverse=True)
+        seen, result[fdid] = set(), []
+        for _, ckey, locale in entries:
+            if ckey not in seen:
+                seen.add(ckey)
+                result[fdid].append((ckey, locale))
     return result
 
 
@@ -253,6 +267,7 @@ class Casc:
         self.storage = LocalStorage(os.path.join(wow_dir, "Data", "data"), keys)
         self.encoding = Encoding(self.storage.read_ekey(bytes.fromhex(config["encoding"][1])))
         self.root = parse_root(self.read_ckey(bytes.fromhex(config["root"][0])))
+        self.locales = {}  # FileDataID -> locale flags of the variant actually read
 
     def _find_build(self, product):
         with open(os.path.join(self.wow_dir, ".build.info"), encoding="utf8") as f:
@@ -280,7 +295,18 @@ class Casc:
         return self.storage.read_ekey(ekey)
 
     def read_fdid(self, fdid):
-        ckey = self.root.get(fdid)
-        if ckey is None:
+        """File contents by FileDataID: the first candidate whose data is stored locally."""
+        candidates = self.root.get(fdid)
+        if candidates is None:
             raise KeyError(f"FileDataID {fdid} nicht im Root")
-        return self.read_ckey(ckey)
+        error = None
+        for ckey, locale in candidates:
+            ekey = self.encoding.lookup(ckey)
+            if ekey is None:
+                error = error or KeyError("CKey nicht in Encoding: " + ckey.hex())
+            elif ekey[:9] in self.storage.index:
+                self.locales[fdid] = locale
+                return self.storage.read_ekey(ekey)
+            else:
+                error = error or KeyError("EKey nicht im lokalen Speicher: " + ekey.hex())
+        raise error

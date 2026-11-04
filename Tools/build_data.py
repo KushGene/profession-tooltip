@@ -5,10 +5,11 @@ The main source is the client's DB2 tables (read via casc.py/db2.py):
   SkillLineAbility  recipe -> profession, color thresholds (yellow/gray)
   SpellReagents     reagents and counts
   SpellEffect       crafted item
-  SpellName         English recipe name (fallback in the addon)
+  SpellName         English recipe name (fallback in the addon; on non-English clients the
+                    localized name – the English names of existing recipes are kept instead)
   ItemEffect + ItemXItemEffect   recipe item -> taught recipe
   ItemSparse        required skill according to the recipe item
-Plus the client's hotfix cache (Cache/ADB/enUS/DBCache.bin): the server sends changes and the
+Plus the client's hotfix cache (Cache/ADB/<locale>/DBCache.bin): the server sends changes and the
 data of items the client doesn't ship yet (e.g. recipe items of new content) only after login
 or when you come across them – so the cache, and with it the data, grows with playing.
 
@@ -48,7 +49,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import casc  # noqa: E402
 import db2  # noqa: E402
 
-PRODUCT = "wow_classic_beta"  # WoW: Forever; adjust after launch if needed (--product)
+PRODUCT = "wowf"  # WoW: Forever (product name in World of Warcraft/.build.info)
 
 # Skill line -> (file name, foreverdb name)
 PROFESSIONS = {
@@ -75,6 +76,14 @@ FOREVER_MIN_SPELL = 1229000
 
 EFFECT_CREATE_ITEM = 24
 TRIGGER_LEARN_SPELL = 6
+
+# CASC root locale flag -> locale name (wowdev CASC); enUS = casc.LOCALE_ENUS
+LOCALE_NAMES = {
+    0x2: "enUS", 0x4: "koKR", 0x10: "frFR", 0x20: "deDE", 0x40: "zhCN", 0x80: "esES",
+    0x100: "zhTW", 0x200: "enGB", 0x400: "enCN", 0x800: "enTW", 0x1000: "esMX",
+    0x2000: "ruRU", 0x4000: "ptBR", 0x8000: "itIT", 0x10000: "ptPT",
+}
+
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0"
 WEB_TIMEOUT = 20
 MAX_HOST_FAILURES = 2  # after that many failed requests a host is skipped for the rest of the run
@@ -133,6 +142,14 @@ class WebCache:
             return f.read()
 
 
+def locale_name(flags):
+    """Name of the first set locale bit (or the raw flags if unknown)."""
+    for bit in sorted(LOCALE_NAMES):
+        if flags & bit:
+            return LOCALE_NAMES[bit]
+    return f"0x{flags:x}"
+
+
 # ----------------------------------------------------------------------------
 # Client data
 # ----------------------------------------------------------------------------
@@ -144,18 +161,25 @@ def load_client_tables(wow_dir, product, web):
     hotfixes, hotfix_path = load_hotfixes(wow_dir, storage.build_name)
 
     manifest = {e["tableName"]: e.get("db2FileDataID") for e in json.loads(web.get(MANIFEST_URL, "manifest.json"))}
-    tables = {}
+    tables, non_english = {}, {}
     for name in TABLES:
         definition = web.get(DBD_URL.format(name), f"dbd_{name}.dbd")
-        tables[name] = db2.read_table(storage.read_fdid(manifest[name]), definition, hotfixes)
-    return storage.build_name, tables, hotfix_path, sum(len(records) for records in hotfixes.values())
+        fdid = manifest[name]
+        tables[name] = db2.read_table(storage.read_fdid(fdid), definition, hotfixes)
+        if not storage.locales[fdid] & casc.LOCALE_ENUS:
+            non_english[name] = locale_name(storage.locales[fdid])
+    return (storage.build_name, tables, hotfix_path,
+            sum(len(records) for records in hotfixes.values()), non_english)
 
 
 def load_hotfixes(wow_dir, build_name):
-    """Hotfix cache of the installation that matches the client build (English, like the names)."""
+    """Hotfix cache of the installation that matches the client build; searched in every
+    installed locale (_*_/Cache/ADB/<locale>/DBCache.bin), enUS directories first."""
     match = re.search(r"(\d+)", build_name)
     build = int(match[1]) if match else None
-    for path in sorted(glob.glob(os.path.join(wow_dir, "_*_", "Cache", "ADB", "enUS", "DBCache.bin"))):
+    paths = glob.glob(os.path.join(wow_dir, "_*_", "Cache", "ADB", "*", "DBCache.bin"))
+    paths.sort(key=lambda p: (os.sep + "enUS" + os.sep not in p, p))
+    for path in paths:
         with open(path, "rb") as f:
             hotfixes = db2.read_hotfixes(f.read(), build)
         if hotfixes:
@@ -259,6 +283,11 @@ def read_data_file(path):
     return result
 
 
+def lua_unescape(text):
+    """Undoes the escapes lua_string writes (only \\" and \\\\ occur in the data files)."""
+    return re.sub(r"\\(.)", r"\1", text)
+
+
 def as_tuple(recipe):
     return (recipe["skill"], recipe["name"].replace("\\", "\\\\").replace('"', '\\"'), tuple(recipe["reagents"]),
             recipe["created"], tuple(recipe["levels"] or ()))
@@ -307,7 +336,8 @@ def heading(text):
     print(dim("─" * 78))
 
 
-def print_header(build_name, hotfix_path, hotfix_count, trainer_count, trainer_files, web, dry_run):
+def print_header(build_name, hotfix_path, hotfix_count, trainer_count, trainer_files, web, dry_run,
+                 non_english=None, localized_names=0):
     title = "Profession Tooltip – Datenprüfung" + (" (Testlauf, es wird nichts geschrieben)" if dry_run else "")
     print(bold(title))
     print(dim("═" * 78))
@@ -315,6 +345,15 @@ def print_header(build_name, hotfix_path, hotfix_count, trainer_count, trainer_f
     print(f"  {'Spielclient':14} {build_name}")
     print(f"  {'Hotfixes':14} " + (f"{hotfix_count} Einträge aus {hotfix_path}" if hotfix_path
                                     else yellow("keine passende DBCache.bin gefunden")))
+    if non_english:
+        locale = next(iter(non_english.values()))
+        if "SpellName" in non_english:
+            note = (f"Client-Sprache {locale}: englische Ersatznamen aus den bestehenden Daten "
+                    f"übernommen, {localized_names} neue Rezepte mit {locale}-Namen.")
+        else:
+            note = (f"Client-Sprache {locale}: {', '.join(sorted(non_english))} ohne enUS-Variante "
+                    "gelesen (nur Zahlen betroffen).")
+        print(f"  {'Sprache':14} " + yellow(note))
     print(f"  {'Lehrer-Scans':14} {trainer_count} Rezepte aus {trainer_files} SavedVariables-Datei(en)")
     for host in web.failed_hosts():
         print(f"  {'Nicht erreicht':14} " + yellow(f"{host} – {web.fallbacks.get(host, 0)} Seite(n) aus dem Cache, "
@@ -429,7 +468,7 @@ def main():
     tools_dir = os.path.dirname(os.path.abspath(__file__))
     addon_dir = os.path.dirname(tools_dir)
     data_dir = os.path.join(addon_dir, "Data")
-    # If the addon sits in the game (.../World of Warcraft/_classic_beta_/Interface/AddOns/ProfessionTooltip),
+    # If the addon sits in the game (.../World of Warcraft/_forever_/Interface/AddOns/ProfessionTooltip),
     # the WoW folder follows from that; in the repository, pass --wow-dir or set WOW_DIR.
     default_wow_dir = os.environ.get("WOW_DIR") or os.path.abspath(os.path.join(addon_dir, "..", "..", "..", ".."))
 
@@ -449,7 +488,8 @@ def main():
 
     print(dim("Lese Spieldaten und Web-Listen …"), flush=True)
     web = WebCache(args.cache, args.offline)
-    build_name, tables, hotfix_path, hotfix_count = load_client_tables(args.wow_dir, args.product, web)
+    build_name, tables, hotfix_path, hotfix_count, non_english = load_client_tables(
+        args.wow_dir, args.product, web)
     trainer, trainer_files = trainer_scans(args.wow_dir)
 
     teaching_items = recipe_items(tables)
@@ -462,9 +502,11 @@ def main():
     reagents_by_spell = {r["SpellID"]: r for r in tables["SpellReagents"].values()}
     names = tables["SpellName"]
 
-    report, recipe_rows, outputs, total_changes = [], [], [], 0
+    report, recipe_rows, outputs, total_changes, localized_names = [], [], [], 0, 0
+    spell_names_english = "SpellName" not in non_english
     for skill_line, (file_name, web_name) in PROFESSIONS.items():
         fdb, available = foreverdb_recipes(web, web_name)
+        old = read_data_file(os.path.join(data_dir, file_name + ".lua"))
         recipes, skipped = {}, 0
         sources = {"Rezept-Item": 0, "Lehrer-Scan": 0, "foreverdb": 0, "unbekannt": 0}
         for ability in tables["SkillLineAbility"].values():
@@ -497,12 +539,19 @@ def main():
                 skill, source = 0, "unbekannt"
             sources[source] += 1
 
-            name = names.get(spell_id, {}).get("Name_lang") or f"Spell {spell_id}"
+            client_name = names.get(spell_id, {}).get("Name_lang")
+            if spell_names_english:
+                name = client_name or f"Spell {spell_id}"
+            elif spell_id in old:
+                name = lua_unescape(old[spell_id][1])  # keep the English name of known recipes
+            else:
+                name = client_name or f"Spell {spell_id}"
+                localized_names += bool(client_name)
             recipes[spell_id] = {"skill": skill, "name": name, "reagents": reagents,
                                  "created": item_id or 0, "levels": levels}
             all_recipes.add(spell_id)
 
-        stats = compare(read_data_file(os.path.join(data_dir, file_name + ".lua")), recipes)
+        stats = compare(old, recipes)
         total_changes += stats["neu"] + stats["entfernt"] + stats["geändert"]
         report.append((file_name, stats))
         outputs.append((file_name, skill_line, recipes))
@@ -523,7 +572,8 @@ def main():
             write_data_file(data_dir, file_name, skill_line, build_name, recipes)
         write_recipe_items(data_dir, build_name, items)
 
-    print_header(build_name, hotfix_path, hotfix_count, len(trainer), trainer_files, web, args.dry_run)
+    print_header(build_name, hotfix_path, hotfix_count, len(trainer), trainer_files, web,
+                 args.dry_run, non_english, localized_names)
     print_recipe_table(recipe_rows)
     print_report(report, total_changes, len(items), args.dry_run, incomplete)
     if incomplete:

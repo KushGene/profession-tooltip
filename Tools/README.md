@@ -29,7 +29,7 @@ about a minute.
 | `--offline` | No internet; uses only the client and the existing cache |
 | `--dry-run` | Only report what would change, don't write any files |
 | `--wow-dir PATH` | WoW installation folder (alternatively the environment variable `WOW_DIR`) |
-| `--product NAME` | Client product from `World of Warcraft/.build.info` (default: `wow_classic_beta`). Adjust after launch if needed, or change `PRODUCT` in `build_data.py` |
+| `--product NAME` | Client product from `World of Warcraft/.build.info` (default: `wowf` = WoW: Forever). Change `PRODUCT` in `build_data.py` if Blizzard renames the product |
 
 ## Files
 
@@ -47,13 +47,20 @@ about a minute.
 | Recipes, reagents, quantities, difficulty levels, names, crafted item | Game client |
 | Recipe item → taught recipe | Game client (`ItemEffect`), also for items whose other data the client doesn't have yet |
 | Required skill | Recipe item in the game client (`ItemSparse`), if the client has its data |
-| Hotfixes | Hotfix cache of the client (`_classic_beta_/Cache/ADB/enUS/DBCache.bin`), applied on top of the tables |
+| Hotfixes | Hotfix cache of the client (`_forever_/Cache/ADB/<locale>/DBCache.bin`), applied on top of the tables |
 | Required skill of trainer recipes | Not in the client. 1) Trainer scans: the addon records the skill whenever you talk to a profession trainer (stored in your SavedVariables, read automatically from the WoW folder). 2) foreverdb.net. Without a match `0` = unknown, nothing is estimated |
 | Available in Forever? | Classic recipes (spell ID < 30000), Forever recipes (≥ 1229000) and everything listed in the recipe lists on foreverdb.net. This filters out Season of Discovery recipes that exist in the client but cannot be learned in Forever |
 
 Also downloaded on every run: the table definitions
 (github.com/wowdev/WoWDBDefs) and the public key list for encrypted game data
 (github.com/wowdev/TACTKeys).
+
+On non-English clients the tables have no enUS variant; the script then reads the installed
+language instead. Recipe names are supposed to be English (the addon shows the client's
+localized names anyway), so it keeps the existing English names from `Data/*.lua` for known
+recipes – only new recipes get a localized name (reported under "Sprache" in the output).
+Replace those by hand with the English name (e.g. from foreverdb.net/spell/<spellID>); later
+runs keep it.
 
 ## Hotfix cache and data that is still missing
 
