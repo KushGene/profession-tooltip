@@ -16,9 +16,11 @@ Optional web additions (skipped with --offline):
   Trainer scans  required skill for trainer recipes, recorded by the addon when visiting a trainer
                  (SavedVariables in the WoW folder)
   foreverdb.net  required skill for trainer recipes (not in the client); without a match
-                 it stays unknown (0) – nothing is guessed
-  seemeta.com    list of recipes available in Forever, to filter out Season of Discovery recipes
+                 it stays unknown (0) – nothing is guessed. Its recipe list also tells which
+                 recipes are available in Forever, to filter out Season of Discovery recipes
                  that are in the client but cannot be learned in Forever
+
+If a host fails repeatedly, it is skipped for the rest of the run and the cache is used.
 
 Also fetched from the web (cached): table definitions from WoWDBDefs and the
 public TACT key list (to decrypt new content).
@@ -38,6 +40,7 @@ import re
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -46,7 +49,7 @@ import db2  # noqa: E402
 
 PRODUCT = "wow_classic_beta"  # WoW: Forever; adjust after launch if needed (--product)
 
-# Skill line -> (file name, seemeta/foreverdb name)
+# Skill line -> (file name, foreverdb name)
 PROFESSIONS = {
     171: ("Alchemy", "alchemy"),
     164: ("Blacksmithing", "blacksmithing"),
@@ -73,6 +76,8 @@ EFFECT_CREATE_ITEM = 24
 TRIGGER_LEARN_SPELL = 6
 DAY = 86400
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0"
+WEB_TIMEOUT = 20
+MAX_HOST_FAILURES = 2  # after that many failed requests a host is skipped for the rest of the run
 
 DBD_URL = "https://raw.githubusercontent.com/wowdev/WoWDBDefs/master/definitions/{}.dbd"
 MANIFEST_URL = "https://raw.githubusercontent.com/wowdev/WoWDBDefs/master/manifest.json"
@@ -85,30 +90,48 @@ TACT_KEYS_URL = "https://raw.githubusercontent.com/wowdev/TACTKeys/master/WoW.tx
 class WebCache:
     def __init__(self, cache_dir, refresh, offline):
         self.cache_dir, self.refresh, self.offline = cache_dir, refresh, offline
+        self.failures = {}  # host -> number of failed requests
+        self.fallbacks = {}  # host -> number of requests answered from the (outdated) cache
         os.makedirs(cache_dir, exist_ok=True)
 
     def get(self, url, key, max_age=7 * DAY):
-        """Load a file from the cache or fetch it again; None if offline and not present."""
+        """Load a file from the cache or fetch it again; None if offline/unreachable and not present."""
         path = os.path.join(self.cache_dir, key)
-        fresh = os.path.exists(path) and time.time() - os.path.getmtime(path) < max_age
-        if os.path.exists(path) and (self.offline or (fresh and not self.refresh)):
-            with open(path, encoding="utf8") as f:
-                return f.read()
+        cached = os.path.exists(path)
+        fresh = cached and time.time() - os.path.getmtime(path) < max_age
+        if cached and (self.offline or (fresh and not self.refresh)):
+            return self._read(path)
         if self.offline:
             return None
-        try:
-            request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            body = urllib.request.urlopen(request, timeout=60).read().decode("utf8")
-        except (urllib.error.URLError, TimeoutError) as e:
-            print(f"  Warnung: {url} nicht erreichbar ({e})", flush=True)
-            if os.path.exists(path):
-                with open(path, encoding="utf8") as f:
-                    return f.read()
+        host = urllib.parse.urlsplit(url).hostname
+        if self.failures.get(host, 0) < MAX_HOST_FAILURES:
+            try:
+                request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+                body = urllib.request.urlopen(request, timeout=WEB_TIMEOUT).read().decode("utf8")
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+                self.failures[host] = self.failures.get(host, 0) + 1
+                print(f"  Warnung: {url} nicht erreichbar ({e})", flush=True)
+                if self.failures[host] == MAX_HOST_FAILURES:
+                    print(f"  Warnung: {host} wird für diesen Lauf übersprungen"
+                          f" ({MAX_HOST_FAILURES} Fehlschläge), es wird der Cache genutzt", flush=True)
+            else:
+                self.failures[host] = 0
+                with open(path, "w", encoding="utf8") as f:
+                    f.write(body)
+                time.sleep(0.5)
+                return body
+        if not cached:
             return None
-        with open(path, "w", encoding="utf8") as f:
-            f.write(body)
-        time.sleep(0.5)
-        return body
+        self.fallbacks[host] = self.fallbacks.get(host, 0) + 1
+        return self._read(path)
+
+    def unreachable_hosts(self):
+        return sorted(host for host, count in self.failures.items() if count >= MAX_HOST_FAILURES)
+
+    @staticmethod
+    def _read(path):
+        with open(path, encoding="utf8") as f:
+            return f.read()
 
 
 # ----------------------------------------------------------------------------
@@ -170,9 +193,10 @@ def created_items(tables):
 # ----------------------------------------------------------------------------
 # Web additions
 # ----------------------------------------------------------------------------
-def foreverdb_skills(web, profession):
-    """(item|spell, id) -> required skill, according to foreverdb (includes trainer recipes)."""
-    skills = {}
+def foreverdb_recipes(web, profession):
+    """According to foreverdb (includes trainer recipes):
+    ({(item|spell, id): required skill}, set of (item|spell, id) available in Forever or None)."""
+    skills, available = {}, set()
     for page in range(1, 40):
         body = web.get(f"https://foreverdb.net/profession/{profession}?p={page}", f"fdb_{profession}_{page}")
         if not body:
@@ -183,21 +207,16 @@ def foreverdb_skills(web, profession):
             entries += re.findall(r"<li>(.*?)</li>", ul)
         for li in entries:
             ref = re.search(r"/(item|spell)/(\d+)", li)
+            if not ref:
+                continue
+            ref = (ref[1], int(ref[2]))
+            available.add(ref)
             skill = re.search(r"(?:, skill|learn it at skill) (\d+)", html.unescape(re.sub(r"<[^>]+>", "", li)))
-            if ref and skill:
-                skills.setdefault((ref[1], int(ref[2])), int(skill[1]))
+            if skill:
+                skills.setdefault(ref, int(skill[1]))
         if not entries or "Next" not in body:
             break
-    return skills
-
-
-def seemeta_available(web, profession):
-    """Set of (item|spell, id) that seemeta lists as available in Forever (or None)."""
-    body = web.get(f"https://seemeta.com/en/wow-forever/professions/{profession}", f"seemeta_{profession}")
-    if not body:
-        return None
-    return {(kind, int(i)) for kind, i in
-            re.findall(r'<a data-name href="https://www.wowhead.com/forever/(item|spell)=(\d+)"', body)}
+    return skills, available or None
 
 
 # ----------------------------------------------------------------------------
@@ -289,7 +308,7 @@ def heading(text):
     print(dim("─" * 78))
 
 
-def print_header(build_name, hotfix_path, hotfix_count, trainer_count, trainer_files, dry_run):
+def print_header(build_name, hotfix_path, hotfix_count, trainer_count, trainer_files, web, dry_run):
     title = "Profession Tooltip – Datenprüfung" + (" (Testlauf, es wird nichts geschrieben)" if dry_run else "")
     print(bold(title))
     print(dim("═" * 78))
@@ -298,6 +317,9 @@ def print_header(build_name, hotfix_path, hotfix_count, trainer_count, trainer_f
     print(f"  {'Hotfixes':14} " + (f"{hotfix_count} Einträge aus {hotfix_path}" if hotfix_path
                                     else yellow("keine passende DBCache.bin gefunden")))
     print(f"  {'Lehrer-Scans':14} {trainer_count} Rezepte aus {trainer_files} SavedVariables-Datei(en)")
+    for host in web.unreachable_hosts():
+        print(f"  {'Nicht erreicht':14} " + yellow(f"{host} – {web.fallbacks.get(host, 0)} Seite(n) aus dem Cache, "
+                                                  "fehlende Seiten übersprungen"))
 
 
 def print_recipe_table(rows):
@@ -438,8 +460,7 @@ def main():
 
     report, recipe_rows, total_changes = [], [], 0
     for skill_line, (file_name, web_name) in PROFESSIONS.items():
-        fdb = foreverdb_skills(web, web_name)
-        available = seemeta_available(web, web_name)
+        fdb, available = foreverdb_recipes(web, web_name)
         recipes, skipped = {}, 0
         sources = {"Rezept-Item": 0, "Lehrer-Scan": 0, "foreverdb": 0, "unbekannt": 0}
         for ability in tables["SkillLineAbility"].values():
@@ -494,7 +515,7 @@ def main():
     if not args.dry_run:
         write_recipe_items(data_dir, build_name, items)
 
-    print_header(build_name, hotfix_path, hotfix_count, len(trainer), trainer_files, args.dry_run)
+    print_header(build_name, hotfix_path, hotfix_count, len(trainer), trainer_files, web, args.dry_run)
     print_recipe_table(recipe_rows)
     print_report(report, total_changes, len(items), args.dry_run)
 

@@ -49,7 +49,7 @@ Requires only Python 3, no extra packages. A run takes about 15 seconds.
 | Required skill | Recipe item in the game client (`ItemSparse`), if the client has its data |
 | Hotfixes | Hotfix cache of the client (`_classic_beta_/Cache/ADB/enUS/DBCache.bin`), applied on top of the tables |
 | Required skill of trainer recipes | Not in the client. 1) Trainer scans: the addon records the skill whenever you talk to a profession trainer (stored in your SavedVariables, read automatically from the WoW folder). 2) foreverdb.net. Without a match `0` = unknown, nothing is estimated |
-| Available in Forever? | Classic recipes (spell ID < 30000), Forever recipes (≥ 1229000) and everything listed on seemeta.com. This filters out Season of Discovery recipes that exist in the client but cannot be learned in Forever |
+| Available in Forever? | Classic recipes (spell ID < 30000), Forever recipes (≥ 1229000) and everything listed in the recipe lists on foreverdb.net. This filters out Season of Discovery recipes that exist in the client but cannot be learned in Forever |
 
 Also downloaded and cached for 7 days: the table definitions
 (github.com/wowdev/WoWDBDefs) and the public key list for encrypted game data
@@ -89,3 +89,6 @@ recipes yet. Simply run again later with `--refresh`.
 - **`Produkt … nicht in .build.info`:** adjust `--product` (column "Product" in `.build.info`).
 - **Suddenly far fewer recipes:** new content may be encrypted with a key that is not public yet.
   Try again later with `--refresh` (updates the key list).
+- **`… wird für diesen Lauf übersprungen`:** a website failed twice in a row. The script stops
+  contacting it, uses the cached pages instead and lists the host under "Nicht erreicht" in the
+  report. Run again later with `--refresh` to update the data.
