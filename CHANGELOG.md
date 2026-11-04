@@ -3,7 +3,7 @@
 Changes for players, newest version first. On release, only the section of the released
 version is posted as "What's new" on CurseForge, Wago and GitHub.
 
-## Unreleased
+## 1.0.3 – 2026-11-05
 
 ### Improved
 - Recipe data updated for the WoW: Forever launch build (1.60.1.70790): 9 new recipes such as Enchant Boots - Speed and the Tinker schematics, 10 new recipe items and corrected skill levels for 39 recipes
