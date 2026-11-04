@@ -17,6 +17,9 @@ ns.ICON = "Interface\\Icons\\INV_Scroll_03"
 local eventFrame = CreateFrame("Frame")
 local eventHandlers = {}
 
+-- One erroring handler must not stop the others (errors still reach the default error handler)
+local CallHandler = securecallfunction or function(handler, ...) return handler(...) end
+
 function ns.RegisterEvent(event, handler)
     local list = eventHandlers[event]
     if not list then
@@ -31,7 +34,7 @@ end
 eventFrame:SetScript("OnEvent", function(_, event, ...)
     local list = eventHandlers[event]
     for i = 1, #list do
-        list[i](event, ...)
+        CallHandler(list[i], event, ...)
     end
 end)
 
@@ -40,6 +43,7 @@ local messageHandlers = {}
 -- Internal messages:
 --   SETTINGS_CHANGED     a setting was changed
 --   DATA_CHANGED         scanned recipes or profession ranks have changed
+--   TOOLTIP_REFRESH      visible tooltips should be rebuilt (item data finished loading)
 function ns.On(message, handler)
     local list = messageHandlers[message]
     if not list then
@@ -53,7 +57,7 @@ function ns.Fire(message, ...)
     local list = messageHandlers[message]
     if not list then return end
     for i = 1, #list do
-        list[i](message, ...)
+        CallHandler(list[i], message, ...)
     end
 end
 
@@ -143,6 +147,9 @@ end)
 -- ----------------------------------------------------------------------------
 -- Helpers
 -- ----------------------------------------------------------------------------
+-- IsPlayerSpell is deprecated -> C_SpellBook.IsSpellKnown (spellBank defaults to Player)
+ns.IsSpellKnown = (C_SpellBook and C_SpellBook.IsSpellKnown) or IsPlayerSpell or function() return false end
+
 -- Spell names never change -> resolve once and remember
 local spellNameCache = {}
 

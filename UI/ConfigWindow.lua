@@ -508,7 +508,7 @@ local function CreateTabs(frame)
     tabLine:SetPoint("TOPLEFT", LEFT_X, -HEADER_HEIGHT - 38)
     tabLine:SetWidth(LEFT_WIDTH)
 
-    Select(ns.db.lastTab or 1)
+    Select(TABS[ns.db.lastTab] and ns.db.lastTab or 1) -- lastTab may be missing or out of range
 end
 
 local function CreateWindow()
@@ -571,6 +571,7 @@ local function RenderPreview()
 end
 ns.RegisterEvent("MODIFIER_STATE_CHANGED", RenderPreview)
 ns.RegisterEvent("GET_ITEM_INFO_RECEIVED", RenderPreview)
+ns.On("TOOLTIP_REFRESH", RenderPreview)
 
 StaticPopupDialogs["PROFESSIONTOOLTIP_RESET_SCAN"] = {
     text = L["RESET_SCAN_CONFIRM"],

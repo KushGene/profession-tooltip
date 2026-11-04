@@ -46,6 +46,17 @@ ns.RegisterEvent("BAG_UPDATE_DELAYED", function()
     if ns.db.showStockCount then ClearCache() end
 end)
 
+-- Both tooltips are GameTooltipTemplate -> RefreshData/IsTooltipType exist
+local canRefresh = GameTooltip.RefreshData and GameTooltip.IsTooltipType
+local function RefreshItemTooltips()
+    if not canRefresh then return end
+    for _, tooltip in ipairs({ GameTooltip, ItemRefTooltip }) do
+        if tooltip:IsShown() and tooltip:IsTooltipType(Enum.TooltipDataType.Item) then
+            tooltip:RefreshData()
+        end
+    end
+end
+
 -- Item names loaded later (reagent list of crafted items) -> rebuild in one batch
 local itemInfoPending = false
 ns.RegisterEvent("GET_ITEM_INFO_RECEIVED", function()
@@ -54,6 +65,8 @@ ns.RegisterEvent("GET_ITEM_INFO_RECEIVED", function()
     C_Timer.After(0.5, function()
         itemInfoPending = false
         ClearCache()
+        RefreshItemTooltips()
+        ns.Fire("TOOLTIP_REFRESH")
     end)
 end)
 
@@ -187,7 +200,7 @@ local function AddRecipeItemSection(lines, itemID)
     if not recipe or ns.db.disabledProfessions[professionID] then return end
 
     local profession = ns.GetProfession(professionID)
-    local skill = ns.GetRecipeSkill(recipe)
+    local skill = ns.GetRequiredSkill(spellID, recipe)
     local rank = ns.GetProfessionRank(professionID)
     local status
     if ns.GetKnownDifficulty(spellID) then
@@ -383,7 +396,7 @@ local function AddIngredientSection(lines, itemID, shift)
         end
         local wantHint, hasKnown = AddProfessionGroup(lines, itemID, professionID, groups[professionID], shift)
         wantShiftHint = wantShiftHint or wantHint
-        -- Hint only while neither a scan nor IsPlayerSpell has found anything for an own profession
+        -- Hint only while neither a scan nor IsSpellKnown has found anything for an own profession
         if ns.HasProfession(professionID) and not ns.char.scanned[professionID] and not hasKnown then
             wantScanHint = true
         end
@@ -458,13 +471,10 @@ function ns.AddTooltipLines(tooltip, itemID)
     return true
 end
 
--- Shift changes the content -> rebuild the open item tooltip immediately
-local canRefresh = GameTooltip.RefreshData and GameTooltip.IsTooltipType
+-- Shift changes the content -> rebuild the open item tooltips immediately
 ns.RegisterEvent("MODIFIER_STATE_CHANGED", function(_, key)
-    if not canRefresh or (key ~= "LSHIFT" and key ~= "RSHIFT") then return end
-    if GameTooltip:IsShown() and GameTooltip:IsTooltipType(Enum.TooltipDataType.Item) then
-        GameTooltip:RefreshData()
-    end
+    if key ~= "LSHIFT" and key ~= "RSHIFT" then return end
+    RefreshItemTooltips()
 end)
 
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)

@@ -40,7 +40,7 @@ the client does not know the spell.
 
 1. **Scan:** When a profession window is opened, `Scanner.lua` reads all learned recipes.
    Recipes that are not (yet) in the data are added together with their reagents.
-2. **Without scan:** `IsPlayerSpell(spellID)` reports learned recipes even if the window was
+2. **Without scan:** `C_SpellBook.IsSpellKnown(spellID)` reports learned recipes even if the window was
    never opened.
 3. **Color:** Calculated from the current profession skill and the difficulty levels in the
    data, so it stays up to date while skilling – without another scan.
@@ -51,7 +51,7 @@ To test in game, link the repository into the AddOns folder of the Forever clien
 
 ```sh
 ln -s /path/to/ProfessionTooltip \
-      "/path/to/World of Warcraft/_classic_beta_/Interface/AddOns/ProfessionTooltip"
+      "/path/to/World of Warcraft/_forever_/Interface/AddOns/ProfessionTooltip"
 ```
 
 When the addon runs directly from the repository, the settings window shows the version "dev".

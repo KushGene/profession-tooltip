@@ -127,7 +127,7 @@ end
 ns.RegisterEvent("PLAYER_LOGIN", ns.DetectProfessions)
 ns.RegisterEvent("SKILL_LINES_CHANGED", ns.DetectProfessions)
 
--- Newly learned recipe -> rebuild tooltips (IsPlayerSpell reports it right away)
+-- Newly learned recipe -> rebuild tooltips (IsSpellKnown reports it right away)
 local function OnRecipeLearned()
     ns.Fire("DATA_CHANGED")
 end

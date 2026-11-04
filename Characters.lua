@@ -17,9 +17,9 @@ local function Snapshot()
     for spellID in pairs(ns.char.known) do
         known[spellID] = true
     end
-    -- Recipes of own professions that IsPlayerSpell detects without a scan
+    -- Recipes of own professions that IsSpellKnown detects without a scan
     ns.ForEachRecipe(function(spellID, _, professionID)
-        if not known[spellID] and ns.HasProfession(professionID) and IsPlayerSpell(spellID) then
+        if not known[spellID] and ns.HasProfession(professionID) and ns.IsSpellKnown(spellID) then
             known[spellID] = true
         end
     end)

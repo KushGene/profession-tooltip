@@ -46,7 +46,7 @@ local function ShowAllServices()
     local previous = {}
     for _, serviceType in ipairs(SERVICE_TYPES) do
         previous[serviceType] = GetTrainerServiceTypeFilter(serviceType)
-        SetTrainerServiceTypeFilter(serviceType, 1)
+        SetTrainerServiceTypeFilter(serviceType, true)
     end
     return previous
 end
@@ -54,7 +54,7 @@ end
 local function RestoreFilters(previous)
     if not previous then return end
     for serviceType, enabled in pairs(previous) do
-        SetTrainerServiceTypeFilter(serviceType, enabled and 1 or 0)
+        SetTrainerServiceTypeFilter(serviceType, enabled and true or false)
     end
 end
 

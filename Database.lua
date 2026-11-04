@@ -89,9 +89,14 @@ function ns.GetReagentCount(recipe, itemID)
     return 0
 end
 
--- Recipe item subclass -> profession (item class 9 = Recipe)
-local ITEM_CLASS_RECIPE = 9
-local RECIPE_SUBCLASS_PROFESSION = {
+-- Recipe item subclass -> profession (item class Recipe)
+local ITEM_CLASS_RECIPE = Enum.ItemClass and Enum.ItemClass.Recipe or 9
+local SUBCLASS = Enum.ItemRecipeSubclass
+local RECIPE_SUBCLASS_PROFESSION = SUBCLASS and {
+    [SUBCLASS.Leatherworking] = 165, [SUBCLASS.Tailoring] = 197, [SUBCLASS.Engineering] = 202,
+    [SUBCLASS.Blacksmithing] = 164, [SUBCLASS.Cooking] = 185, [SUBCLASS.Alchemy] = 171,
+    [SUBCLASS.FirstAid] = 129, [SUBCLASS.Enchanting] = 333, [SUBCLASS.Fishing] = 356,
+} or {
     [1] = 165, [2] = 197, [3] = 202, [4] = 164, [5] = 185, [6] = 171, [7] = 129, [8] = 333, [9] = 356,
 }
 local matchedByName = {}    -- [recipe item] = taught spell, or false if no recipe matches
@@ -195,11 +200,11 @@ function ns.GetRecipesCreating(itemID)
 end
 
 -- Difficulty (0 orange .. 3 gray) of a learned recipe, nil if not learned.
--- Learned: per scan or per IsPlayerSpell (works without the profession window open, too).
+-- Learned: per scan or per IsSpellKnown (works without the profession window open, too).
 -- The color is computed from the current profession rank so it stays current while leveling.
 function ns.GetKnownDifficulty(spellID)
     local scanned = ns.char.known[spellID]
-    if scanned == nil and not IsPlayerSpell(spellID) then
+    if scanned == nil and not ns.IsSpellKnown(spellID) then
         return nil
     end
     local recipe, professionID = ns.GetRecipe(spellID)
@@ -222,7 +227,8 @@ function ns.GetDatabaseStats()
     return recipeCount, itemCount
 end
 
--- New scanned recipes without a DB entry require a rebuild
+-- New scanned recipes without a DB entry require a rebuild (and a fresh name match)
 function ns.InvalidateIndex()
     reagentIndex, createdIndex = nil, nil
+    wipe(matchedByName)
 end

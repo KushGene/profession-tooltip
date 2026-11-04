@@ -8,9 +8,6 @@ ns.Widgets = Widgets
 Widgets.ACCENT = { 1, 0.62, 0.20 }
 
 function Widgets.Backdrop(frame, bg, border)
-    if not frame.SetBackdrop then
-        Mixin(frame, BackdropTemplateMixin)
-    end
     frame:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8x8",
         edgeFile = "Interface\\Buttons\\WHITE8x8",
