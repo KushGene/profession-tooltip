@@ -1,5 +1,5 @@
 -- Data/Alchemy.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70450patch1.60.1_ForeverBeta).
+-- Generated automatically by Tools/build_data.py from the client (WOW-70790patch1.60.1_Retail).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 

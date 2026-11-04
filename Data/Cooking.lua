@@ -1,5 +1,5 @@
 -- Data/Cooking.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70450patch1.60.1_ForeverBeta).
+-- Generated automatically by Tools/build_data.py from the client (WOW-70790patch1.60.1_Retail).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
@@ -136,6 +136,7 @@ ns.RegisterRecipes(185, {
     [1225762] = { 280, "Specklefin Feast", { 4603, 12, 12184, 4, 6362, 3, 239017, 1 }, 238641, 290, 300, 310 },
     [1225763] = { 280, "Grand Lobster Banquet", { 13888, 12, 3712, 4, 3404, 3, 239017, 1 }, 238642, 290, 300, 310 },
     [25659] = { 300, "Dirge's Kickin' Chimaerok Chops", { 2692, 1, 9061, 1, 8150, 1, 21024, 1 }, 21023, 325, 345, 365 },
+    [470359] = { 300, "Darkclaw Bisque", { 13888, 1, 227813, 1 }, 232436, 325, 345, 365 },
     [470370] = { 300, "Smoked Redgill", { 13758, 1 }, 232438, 325, 345, 365 },
     [1263067] = { 300, "Iron Oven", { 10284, 10, 159, 5, 3713, 4 }, 279982, 300, 300, 300 },
 })

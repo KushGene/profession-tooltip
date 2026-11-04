@@ -1,17 +1,15 @@
 -- Data/Enchanting.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70450patch1.60.1_ForeverBeta).
+-- Generated automatically by Tools/build_data.py from the client (WOW-70790patch1.60.1_Retail).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
 -- [spellID] = { requiredSkill (0 = unknown), "fallback name", { itemID, count, ... },
 --               createdItem (0 = none), yellowAt, greenAt, grayAt }
 ns.RegisterRecipes(333, {
+    [1213616] = { 0, "Enchant Chest - Living Stats", { 20725, 2, 16204, 8, 16203, 5, 13458, 10, 234011, 2, 234010, 2 }, 0, 320, 340, 360 },
     [1217189] = { 0, "Enchant Bracer - Spell Power", { 14344, 2, 16204, 20, 16203, 4, 7080, 2, 7078, 2, 7082, 2 }, 0, 320, 340, 360 },
     [1217203] = { 0, "Enchant Bracer - Agility", { 20725, 2, 16204, 10, 16203, 2, 7082, 2 }, 0, 320, 340, 360 },
     [1230643] = { 0, "Enchanted Lute", { 4470, 1, 10940, 1 }, 279976, 20, 23, 25 },
-    [1249107] = { 0, "Frozen Heart of the Mountain", { 11382, 1, 12808, 1, 14343, 3 }, 249469, 285, 305, 325 },
-    [1249112] = { 0, "Molten Heart of the Mountain", { 11382, 1, 7076, 1, 14343, 3 }, 249470, 285, 305, 325 },
-    [1249114] = { 0, "Dormant Heart of the Mountain", { 11382, 1, 7080, 1, 14343, 3 }, 249473, 285, 305, 325 },
     [7418] = { 1, "Enchant Bracer - Inferior Stamina", { 247786, 1 }, 0, 20, 23, 25 },
     [7421] = { 1, "Runed Copper Rod", { 6217, 1, 247786, 1 }, 6218, 5, 8, 10 },
     [7428] = { 1, "Enchant Bracer - Minor Deflect", { 10938, 1 }, 0, 80, 100, 120 },
@@ -162,6 +160,9 @@ ns.RegisterRecipes(333, {
     [15596] = { 265, "Smoking Heart of the Mountain", { 11382, 1, 7078, 1, 14343, 3 }, 11811, 285, 305, 325 },
     [20014] = { 265, "Enchant Cloak - Greater Resistance", { 16202, 1, 7077, 1, 7075, 1, 7079, 1, 7081, 1, 7972, 1 }, 0, 285, 305, 325 },
     [20017] = { 265, "Enchant Shield - Greater Stamina", { 11176, 6 }, 0, 285, 305, 325 },
+    [1249107] = { 265, "Frozen Heart of the Mountain", { 11382, 1, 12808, 1, 14343, 3 }, 249469, 285, 305, 325 },
+    [1249112] = { 265, "Molten Heart of the Mountain", { 11382, 1, 7076, 1, 14343, 3 }, 249470, 285, 305, 325 },
+    [1249114] = { 265, "Dormant Heart of the Mountain", { 11382, 1, 7080, 1, 14343, 3 }, 249473, 285, 305, 325 },
     [20009] = { 270, "Enchant Bracer - Superior Spirit", { 16202, 2, 11176, 7 }, 0, 290, 310, 330 },
     [20012] = { 270, "Enchant Gloves - Greater Agility", { 16202, 2, 16204, 2 }, 0, 290, 310, 330 },
     [20024] = { 275, "Enchant Boots - Spirit", { 16203, 2, 16202, 1 }, 0, 295, 315, 335 },
@@ -175,6 +176,7 @@ ns.RegisterRecipes(333, {
     [1231139] = { 280, "Enchant 2H Weapon - Grand Arcanist", { 14344, 10, 12811, 4, 20725, 4, 12938, 1 }, 0, 305, 308, 310 },
     [1231164] = { 280, "Enchant Weapon - Grand Sorcerer", { 14344, 6, 12811, 3, 20725, 2, 12938, 1 }, 0, 305, 308, 310 },
     [1232172] = { 280, "Enchant 2H Weapon - Grand Inquisitor", { 14344, 10, 12811, 6, 20725, 4, 12938, 1 }, 0, 305, 308, 310 },
+    [1328948] = { 280, "Enchant Boots - Speed", { 11178, 2, 11176, 8, 11175, 2, 12361, 1 }, 0, 280, 290, 300 },
     [20015] = { 285, "Enchant Cloak - Superior Defense", { 16204, 8 }, 0, 305, 325, 345 },
     [20029] = { 285, "Enchant Weapon - Icy Chill", { 14343, 4, 7080, 1, 7082, 1, 13467, 1 }, 0, 305, 325, 345 },
     [20028] = { 290, "Enchant Chest - Major Intellect", { 16203, 3, 14343, 1 }, 0, 310, 330, 350 },

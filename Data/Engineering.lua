@@ -1,5 +1,5 @@
 -- Data/Engineering.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70450patch1.60.1_ForeverBeta).
+-- Generated automatically by Tools/build_data.py from the client (WOW-70790patch1.60.1_Retail).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
@@ -14,6 +14,9 @@ ns.RegisterRecipes(202, {
     [23486] = { 0, "Dimensional Ripper - Everlook", { 3860, 10, 18631, 1, 7077, 4, 7910, 2, 10586, 1 }, 18984, 285, 295, 305 },
     [23489] = { 0, "Ultrasafe Transporter - Gadgetzan", { 3860, 12, 18631, 2, 7075, 4, 7079, 2, 7909, 4, 9060, 1 }, 18986, 285, 295, 305 },
     [26011] = { 0, "Tranquil Mechanical Yeti", { 15407, 1, 15994, 4, 7079, 2, 18631, 2, 10558, 1 }, 21277, 320, 330, 340 },
+    [1226210] = { 0, "Tinker: Teleport", { 238737, 1, 16006, 1, 15994, 1 }, 0, 280, 283, 285 },
+    [1226211] = { 0, "Tinker: Nitro Boosts", { 238737, 1, 16006, 1, 16000, 1 }, 0, 280, 283, 285 },
+    [1226212] = { 0, "Tinker: Magnetic Displacement", { 238737, 1, 16006, 1, 4387, 2 }, 0, 280, 283, 285 },
     [1230656] = { 0, "Reagent Bot", { 4359, 1, 4361, 1 }, 279950, 20, 23, 25 },
     [1249634] = { 0, "Sandpaper", { 249425, 2, 2996, 1 }, 249432, 130, 143, 155 },
     [3918] = { 1, "Rough Blasting Powder", { 2835, 1 }, 4357, 20, 30, 40 },
@@ -162,6 +165,8 @@ ns.RegisterRecipes(202, {
     [26424] = { 225, "Green Rocket Cluster", { 10505, 1, 4304, 1 }, 21574, 225, 238, 250 },
     [26425] = { 225, "Red Rocket Cluster", { 10505, 1, 4304, 1 }, 21576, 225, 238, 250 },
     [26442] = { 225, "Firework Launcher", { 9060, 2, 9061, 2, 10560, 2, 10561, 1 }, 21569, 245, 255, 265 },
+    [435964] = { 225, "High-Yield Radiation Bomb", { 10505, 1, 215430, 1, 3860, 2 }, 215127, 225, 230, 235 },
+    [435966] = { 225, "Ez-Thro Radiation Bomb", { 10505, 2, 215430, 1, 3860, 2 }, 215168, 225, 230, 235 },
     [1266919] = { 225, "Emergency Field Cloak", { 4397, 1, 260804, 1 }, 260806, 245, 255, 265 },
     [1266920] = { 225, "Compact Critter Carrier", { 4234, 10, 10559, 10, 11175, 2, 10558, 1 }, 260807, 230, 233, 235 },
     [1319160] = { 225, "Purple Rocket Cluster", { 10505, 1, 4304, 1 }, 21575, 225, 238, 250 },

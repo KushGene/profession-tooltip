@@ -1,5 +1,5 @@
 -- Data/Tailoring.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70450patch1.60.1_ForeverBeta).
+-- Generated automatically by Tools/build_data.py from the client (WOW-70790patch1.60.1_Retail).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
@@ -8,7 +8,6 @@ local _, ns = ...
 ns.RegisterRecipes(197, {
     [7636] = { 0, "Green Woolen Robe", { 2997, 3, 2321, 2, 2605, 1 }, 6243, 90, 108, 125 },
     [8778] = { 0, "Boots of Darkness", { 4305, 3, 2319, 2, 6048, 1, 2321, 2 }, 7027, 135, 150, 165 },
-    [19435] = { 0, "Mooncloth Boots", { 14048, 6, 14342, 4, 7971, 2, 14341, 1 }, 15802, 285, 300, 315 },
     [22813] = { 0, "Gordok Ogre Suit", { 14048, 2, 8170, 4, 18240, 1, 14341, 1 }, 18258, 285, 290, 295 },
     [26086] = { 0, "Felcloth Bag", { 14256, 12, 12810, 6, 20520, 2, 14227, 4 }, 21341, 260, 275, 290 },
     [28205] = { 0, "Glacial Gloves", { 22682, 5, 14048, 4, 7080, 4, 14227, 4 }, 22654, 315, 330, 345 },
@@ -371,6 +370,7 @@ ns.RegisterRecipes(197, {
     [22868] = { 280, "Inferno Gloves", { 14048, 12, 7078, 10, 7910, 2, 14341, 2 }, 18408, 295, 310, 325 },
     [22869] = { 280, "Mooncloth Gloves", { 14048, 12, 14342, 6, 13926, 2, 14341, 2 }, 18409, 295, 310, 325 },
     [22870] = { 280, "Cloak of Warding", { 14048, 12, 12809, 4, 12360, 1, 14341, 2 }, 18413, 295, 310, 325 },
+    [19435] = { 285, "Mooncloth Boots", { 14048, 6, 14342, 4, 7971, 2, 14341, 1 }, 15802, 285, 300, 315 },
     [24901] = { 285, "Runed Stygian Leggings", { 14048, 6, 20520, 8, 14256, 6, 14227, 2 }, 20538, 300, 315, 330 },
     [24902] = { 285, "Runed Stygian Belt", { 14048, 2, 20520, 6, 14256, 2, 12810, 2, 14227, 2 }, 20539, 300, 315, 330 },
     [24903] = { 285, "Runed Stygian Boots", { 14048, 4, 20520, 6, 14256, 4, 12810, 2, 14227, 2 }, 20537, 300, 315, 330 },
