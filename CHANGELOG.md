@@ -5,6 +5,11 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.0.4 – 2026-11-07
+
+### Improved
+- Corrected required skill levels for 151 recipes based on the WoW: Forever trainers, mostly Tailoring, Leatherworking and Blacksmithing (e.g. sharpening stones, Linen Bag, Bolt of Runecloth). Lodestone, Smelt Azerothium, First Aid Kit and other recipes without a known skill level now show one
+
 ### Fixed
 - Scanning a profession no longer removes learned recipes whose profession is unknown
 - Trainer scans no longer assign skill requirements to an arbitrary recipe when multiple recipes share a name
