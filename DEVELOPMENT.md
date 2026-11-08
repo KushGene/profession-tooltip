@@ -15,6 +15,7 @@ Notes for working on Profession Tooltip. For what the addon does, see the [READM
 | `Characters.lua` | Account-wide snapshot per character (for "Known by" / "Learnable by") |
 | `Scanner.lua` | Reads learned recipes and their difficulty from the open profession window |
 | `Tooltip.lua` | Builds the tooltip sections (recipe item, crafted with, ingredient); lines are cached per item and Shift state |
+| `GatheringTooltip.lua`, `Data/Gathering.lua` | Required ranks on red world gathering labels; Classic object IDs, English/German fallback names and level-based skinning requirements (separate from generated recipes) |
 | `Legacy.lua` | Transition from Cooking Tooltip / Alchemy Tooltip (take over settings, disable old addons) |
 | `UI/Widgets.lua` | Reusable UI building blocks (`Column:Header/Check/Choice`) |
 | `UI/ConfigWindow.lua` | Settings window with tabs and live preview |
@@ -46,6 +47,15 @@ the client does not know the spell.
    data, so it stays up to date while skilling – without another scan.
 
 ## Testing in game
+
+Offline regression checks (run from the repository root):
+
+```sh
+luajit Tools/test_gathering.lua
+luajit Tools/test_review.lua
+luajit Tools/test_unlearned_difficulty.lua
+luajit Tools/test_locales.lua
+```
 
 To test in game, link the repository into the AddOns folder of the Forever client:
 

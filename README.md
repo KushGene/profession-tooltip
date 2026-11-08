@@ -23,6 +23,9 @@ the Auction House? Hover over it and you know.
   updating live while you skill up. Unknown recipes in gray with the required skill – red if your
   skill is still too low.
 - **Quantity:** how many of the item a recipe needs, e.g. ×4.
+- **Gathering requirements:** red Herbalism, Mining and Skinnable labels show the required
+  skill on mouseover, without clicking. Covers Classic nodes (object IDs with English/German
+  name fallbacks) and creatures with a known level; unknown requirements are left unchanged.
 - **No setup needed:** learned recipes are detected automatically. Opening each profession window
   once gives the most accurate result; talking to a trainer fills in missing skill levels.
 - **Clean and fast:** long lists are shortened – hold **Shift** to see everything.

@@ -5,6 +5,11 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.1.1 – 2026-11-08
+
+### New
+- Red Herbalism, Mining and Skinnable labels now show the required gathering skill directly on mouseover, without clicking. Includes Classic herb and ore nodes; unknown nodes and unknown creature levels remain unchanged
+
 ## 1.1.0 – 2026-11-08
 
 ### New
