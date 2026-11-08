@@ -199,6 +199,20 @@ function ns.GetRecipesCreating(itemID)
     return createdIndex[itemID]
 end
 
+-- Difficulty from the current rank, regardless of whether the recipe is learned.
+-- Missing thresholds or profession rank: unknown, not an assumed skill-up color.
+function ns.GetRecipeDifficulty(spellID)
+    local recipe, professionID = ns.GetRecipe(spellID)
+    local rank = professionID and ns.GetProfessionRank(professionID)
+    if not (recipe and rank and recipe[YELLOW] and recipe[GREEN] and recipe[GRAY]) then
+        return nil
+    end
+    if rank >= recipe[GRAY] then return DIFFICULTY_TRIVIAL end
+    if rank >= recipe[GREEN] then return DIFFICULTY_EASY end
+    if rank >= recipe[YELLOW] then return DIFFICULTY_MEDIUM end
+    return DIFFICULTY_OPTIMAL
+end
+
 -- Difficulty (0 orange .. 3 gray) of a learned recipe, nil if not learned.
 -- Learned: per scan or per IsSpellKnown (works without the profession window open, too).
 -- The color is computed from the current profession rank so it stays current while leveling.
@@ -207,15 +221,7 @@ function ns.GetKnownDifficulty(spellID)
     if scanned == nil and not ns.IsSpellKnown(spellID) then
         return nil
     end
-    local recipe, professionID = ns.GetRecipe(spellID)
-    local rank = professionID and ns.GetProfessionRank(professionID)
-    if recipe and rank and recipe[YELLOW] then
-        if rank >= recipe[GRAY] then return DIFFICULTY_TRIVIAL end
-        if rank >= recipe[GREEN] then return DIFFICULTY_EASY end
-        if rank >= recipe[YELLOW] then return DIFFICULTY_MEDIUM end
-        return DIFFICULTY_OPTIMAL
-    end
-    return scanned or DIFFICULTY_OPTIMAL
+    return ns.GetRecipeDifficulty(spellID) or scanned or DIFFICULTY_OPTIMAL
 end
 
 -- Number of recipes and reagents (for the statistics in the settings)

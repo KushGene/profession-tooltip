@@ -151,11 +151,38 @@ local function FormatHeader(profession, rank, maxRank, knownCount, totalCount)
     return text
 end
 
+-- Display color must not be used as learned status (skill labels, alts, filters).
+local function RecipeNameColor(spellID, knownDifficulty)
+    local difficulty = knownDifficulty
+    if difficulty == nil and ns.db.showUnlearnedDifficulty then
+        difficulty = ns.GetRecipeDifficulty(spellID)
+    end
+    return difficulty and DIFFICULTY_COLORS[difficulty] or COLOR_UNKNOWN
+end
+
+local function UnlearnedLabel()
+    return " " .. Colorize(COLOR_HINT, "(" .. L["SECTION_UNKNOWN"] .. ")")
+end
+
+local function RequiredSkillColor(spellID, knownDifficulty, professionRank, skill)
+    if knownDifficulty == nil and professionRank and professionRank < skill then
+        return COLOR_TOO_HIGH
+    end
+    if ns.db.showSkillDifficulty then
+        local difficulty = knownDifficulty or ns.GetRecipeDifficulty(spellID)
+        if difficulty ~= nil then return DIFFICULTY_COLORS[difficulty] end
+    end
+    return COLOR_UNKNOWN
+end
+
 local function FormatRecipeLine(spellID, itemID, difficulty, professionRank)
     local db = ns.db
     local recipe = ns.GetRecipe(spellID)
     local name = ns.GetRecipeName(spellID, recipe) or ("#" .. spellID)
-    local text = "   • " .. Colorize(difficulty and DIFFICULTY_COLORS[difficulty] or COLOR_UNKNOWN, name)
+    local text = "   • " .. Colorize(RecipeNameColor(spellID, difficulty), name)
+    if difficulty == nil and db.showUnlearnedDifficulty and not db.groupByKnown then
+        text = text .. UnlearnedLabel()
+    end
 
     local count = ns.GetReagentCount(recipe, itemID)
     if db.showReagentCount and count > 1 then
@@ -168,9 +195,7 @@ local function FormatRecipeLine(spellID, itemID, difficulty, professionRank)
 
     local skill = ns.GetRequiredSkill(spellID, recipe) -- 0 = unknown (trainer recipe without data)
     if skill > 0 and db.showSkill and (not difficulty or db.showSkillKnown) then
-        -- Red if the own profession rank isn't high enough yet for an unlearned recipe
-        local tooHigh = not difficulty and professionRank and professionRank < skill
-        text = text .. " " .. Colorize(tooHigh and COLOR_TOO_HIGH or COLOR_UNKNOWN, "(" .. skill .. ")")
+        text = text .. " " .. Colorize(RequiredSkillColor(spellID, difficulty, professionRank, skill), "(" .. skill .. ")")
     end
 
     if db.showRecipeValue then
@@ -240,10 +265,14 @@ local function AddCraftedSection(lines, itemID)
             local difficulty = ns.GetKnownDifficulty(spellID)
             local name = ns.GetRecipeName(spellID, recipe) or ("#" .. spellID)
             local text = Colorize(COLOR_HINT, L["CRAFTED_BY"]) .. " " .. Icon(ns.GetProfession(professionID), 14) .. " "
-                .. Colorize(difficulty and DIFFICULTY_COLORS[difficulty] or COLOR_UNKNOWN, name)
+                .. Colorize(RecipeNameColor(spellID, difficulty), name)
+            if difficulty == nil and ns.db.showUnlearnedDifficulty then
+                text = text .. UnlearnedLabel()
+            end
             local skill = ns.GetRequiredSkill(spellID, recipe)
             if skill > 0 and ns.db.showSkill then
-                text = text .. " " .. Colorize(COLOR_UNKNOWN, "(" .. skill .. ")")
+                local rank = ns.GetProfessionRank(professionID)
+                text = text .. " " .. Colorize(RequiredSkillColor(spellID, difficulty, rank, skill), "(" .. skill .. ")")
             end
             lines[#lines + 1] = text
 

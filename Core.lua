@@ -79,6 +79,8 @@ local DEFAULTS = {
     unknownOnlyOnShift = false,
     hideTrivialKnownOnShift = true,
     -- Tab "Design"
+    showSkillDifficulty = true,
+    showUnlearnedDifficulty = false,
     headerStyle = "full",          -- "full" (icon + name), "icon", "name"
     showProfessionRank = false,    -- own profession rank in the header, e.g. 70/150
     showKnownCount = true,         -- "16/82 learned" in the header

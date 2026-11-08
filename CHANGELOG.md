@@ -5,6 +5,16 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.1.0 – 2026-11-08
+
+### New
+- Required skill labels, e.g. (100), now use orange, yellow, green or gray difficulty colors based on your current profession skill, even for unlearned recipes. Enabled by default and independently toggleable under Design → Recipe colors; insufficient skill remains red
+- Optional difficulty colors for the names of unlearned recipes. Recipes remain marked as not learned, and their skill labels can be colored independently. Enable this under Design → Recipe colors; disabled by default
+- Recipes without difficulty data or a current profession skill keep their neutral gray color
+
+### Improved
+- New recipe color settings are translated into all supported languages
+
 ## 1.0.4 – 2026-11-07
 
 ### Improved

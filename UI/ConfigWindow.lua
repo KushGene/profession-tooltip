@@ -102,6 +102,9 @@ local function BuildDesignTab(page)
     col:Header(L["SECTION_LAYOUT"])
     col:Check(Option("spacing", "OPT_SPACING", "OPT_SPACING_DESC", IsDetailed))
     col:Check(Option("showHints", "OPT_HINTS", "OPT_HINTS_DESC"))
+    col:Header(L["SECTION_RECIPE_COLORS"])
+    col:Check(Option("showSkillDifficulty", "OPT_SKILL_DIFFICULTY", "OPT_SKILL_DIFFICULTY_DESC"))
+    col:Check(Option("showUnlearnedDifficulty", "OPT_UNLEARNED_DIFFICULTY", "OPT_UNLEARNED_DIFFICULTY_DESC"))
     return col
 end
 
