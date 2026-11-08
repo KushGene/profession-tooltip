@@ -1,5 +1,5 @@
 -- Data/Mining.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70790patch1.60.1_Retail).
+-- Generated automatically by Tools/build_data.py from the client (WOW-70862patch1.60.1_Retail).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
