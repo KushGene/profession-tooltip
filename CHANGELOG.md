@@ -5,6 +5,14 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.1.2 – 2026-11-11
+
+### Improved
+- Updated recipe data for WoW: Forever build 1.60.1.70888: corrected required skill levels for 10 Leatherworking recipes and added the required skill of 285 for Mooncloth Boots
+
+### Fixed
+- Onyxia Scale Breastplate no longer shows an incorrect required skill of 320
+
 ## 1.1.1 – 2026-11-08
 
 ### New
