@@ -5,6 +5,11 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.1.3 – 2026-11-12
+
+### Improved
+- Updated recipe data for WoW: Forever build 1.60.1.70888: corrected difficulty colors across all professions, reagent quantities for five Tailoring bags, and required skill levels for Draught of Water Walking (180) and Tanning Rack (125)
+
 ## 1.1.2 – 2026-11-11
 
 ### Improved
