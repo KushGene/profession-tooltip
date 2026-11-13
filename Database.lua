@@ -218,6 +218,13 @@ end
 -- The color is computed from the current profession rank so it stays current while leveling.
 function ns.GetKnownDifficulty(spellID)
     local scanned = ns.char.known[spellID]
+    if scanned ~= nil then
+        -- Leftover of an unlearned profession (e.g. scanned before it was dropped)
+        local _, professionID = ns.GetRecipe(spellID)
+        if not (professionID and ns.HasProfession(professionID)) then
+            scanned = nil
+        end
+    end
     if scanned == nil and not ns.IsSpellKnown(spellID) then
         return nil
     end

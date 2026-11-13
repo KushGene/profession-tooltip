@@ -48,26 +48,33 @@ end
 
 ns.On("DATA_CHANGED", function() nameIndex = nil end)
 
--- Make all offers visible (including unavailable/learned ones); returns: previous filters
+-- Make all offers visible (including unavailable/learned ones); returns the filters that
+-- were switched on for it. Every filter change makes the client rebuild the whole offer
+-- list, so only filters that are actually off are touched.
 local function ShowAllServices()
     if not (GetTrainerServiceTypeFilter and SetTrainerServiceTypeFilter) then return nil end
-    local previous = {}
+    local changed = {}
     for _, serviceType in ipairs(SERVICE_TYPES) do
-        previous[serviceType] = GetTrainerServiceTypeFilter(serviceType)
-        SetTrainerServiceTypeFilter(serviceType, true)
+        if not GetTrainerServiceTypeFilter(serviceType) then
+            SetTrainerServiceTypeFilter(serviceType, true)
+            changed[#changed + 1] = serviceType
+        end
     end
-    return previous
+    return changed
 end
 
-local function RestoreFilters(previous)
-    if not previous then return end
-    for serviceType, enabled in pairs(previous) do
-        SetTrainerServiceTypeFilter(serviceType, enabled and true or false)
+local function RestoreFilters(changed)
+    if not changed then return end
+    for _, serviceType in ipairs(changed) do
+        SetTrainerServiceTypeFilter(serviceType, false)
     end
 end
 
 local function Scan()
     if not GetNumTrainerServices then return end
+    -- Profession trainers only. Class trainers offer hundreds of spells; unfolding their
+    -- list through the filters froze the game for a moment, for nothing to record.
+    if IsTradeskillTrainer and not IsTradeskillTrainer() then return end
     local previous = ShowAllServices()
 
     local changed = false

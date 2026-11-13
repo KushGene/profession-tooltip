@@ -5,7 +5,7 @@ local keys = {
 }
 local files = { "deDE", "frFR", "esES", "ruRU", "ptBR", "koKR", "zhCN", "zhTW" }
 local checks = 0
-for _, locale in ipairs({ "enUS", "enGB", "deDE", "frFR", "esES", "esMX", "ruRU", "ptBR", "koKR", "zhCN", "zhTW" }) do
+for _, locale in ipairs({ "enUS", "enGB", "deDE", "frFR", "esES", "esMX", "ruRU", "ptBR", "ptPT", "koKR", "zhCN", "zhTW" }) do
     GetLocale = function() return locale end
     local ns = {}
     assert(loadfile("Locales/enUS.lua"))("Test", ns)
@@ -20,5 +20,13 @@ for _, locale in ipairs({ "enUS", "enGB", "deDE", "frFR", "esES", "esMX", "ruRU"
         checks = checks + 1
     end
     assert(ns.L.SECTION_UNKNOWN ~= "SECTION_UNKNOWN", locale .. ": missing unlearned status")
+    for _, key in ipairs({ "ALCHEMY", "BLACKSMITHING", "ENCHANTING", "ENGINEERING", "LEATHERWORKING", "TAILORING",
+        "MINING", "HERBALISM", "SKINNING", "COOKING", "FIRST_AID", "FISHING" }) do
+        local name = ns.L["PROFESSION_" .. key]
+        assert(name ~= "PROFESSION_" .. key and name ~= "", locale .. ": missing profession name " .. key)
+    end
+    if locale ~= "enUS" and locale ~= "enGB" then
+        assert(ns.L.PROFESSION_MINING ~= "Mining", locale .. ": profession names must be translated")
+    end
 end
-print("Locale tests passed (11 locales, " .. checks .. " translated settings checked)")
+print("Locale tests passed (12 locales, " .. checks .. " translated settings checked)")

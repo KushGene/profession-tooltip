@@ -13,6 +13,20 @@ L["OTHER_PROFESSIONS"] = "Также используется:"
 L["SECTION_KNOWN"] = "Изучено"
 L["SECTION_UNKNOWN"] = "Не изучено"
 
+-- Professions (fallback in case the client returns no name)
+L["PROFESSION_ALCHEMY"] = "Алхимия"
+L["PROFESSION_BLACKSMITHING"] = "Кузнечное дело"
+L["PROFESSION_ENCHANTING"] = "Наложение чар"
+L["PROFESSION_ENGINEERING"] = "Инженерное дело"
+L["PROFESSION_LEATHERWORKING"] = "Кожевничество"
+L["PROFESSION_TAILORING"] = "Портняжное дело"
+L["PROFESSION_MINING"] = "Горное дело"
+L["PROFESSION_HERBALISM"] = "Травничество"
+L["PROFESSION_SKINNING"] = "Снятие шкур"
+L["PROFESSION_COOKING"] = "Кулинария"
+L["PROFESSION_FIRST_AID"] = "Первая помощь"
+L["PROFESSION_FISHING"] = "Рыбная ловля"
+
 -- Settings
 L["SUBTITLE"] = "Показывает рецепты, в которых используется ингредиент, — для всех ваших профессий."
 L["OPEN_SETTINGS"] = "Открыть окно настроек"
@@ -102,7 +116,6 @@ L["OPT_VALUE"] = "Показывать аукционную цену проду�
 L["OPT_VALUE_DESC"] = "Нужен Auctionator. Показывает последнюю цену созданного предмета."
 L["SECTION_CHARACTERS"] = "Персонажи"
 L["CURRENT_CHARACTER"] = "(вы)"
-L["MORE_CHARACTERS"] = "… и ещё %d"
 L["SECTION_LEGACY"] = "CookingTooltip / AlchemyTooltip"
 L["OPT_LEGACY_CHECK"] = "Напоминать при входе"
 L["OPT_LEGACY_CHECK_DESC"] = "Предлагает перенести настройки и отключить старые аддоны, пока они активны."

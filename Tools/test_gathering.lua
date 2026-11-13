@@ -3,9 +3,16 @@ local callbacks, scripts = {}, {}
 Enum = { TooltipDataType = { Item = 0, Unit = 2, Object = 4 } }
 TooltipDataProcessor = { AddTooltipPostCall = function(kind, callback) callbacks[kind] = callback end }
 LOCKED_WITH_SPELL = "Benötigt %s"
-SKINNABLE = "Häutbar"
+UNIT_SKINNABLE_LEATHER = "Häutbar" -- the client has no SKINNABLE global
 local level = 25
 UnitLevel = function(unit) assert(unit == "mouseover"); return level end
+strsplit = function(separator, text)
+    local parts = {}
+    for part in (text .. separator):gmatch("(.-)%" .. separator) do parts[#parts + 1] = part end
+    return unpack(parts)
+end
+local clientLocale = "deDE"
+GetLocale = function() return clientLocale end
 issecretvalue = function(value) return value == "SECRET" end
 local ns = { db = { disabledProfessions = {} } }
 ns.GetProfessionName = function(id)
@@ -55,9 +62,25 @@ check(lines[2].text == "Bergbau (125)", "iron requires 125")
 setup("Kingsblood", "Benötigt Kräuterkunde")
 ns.EnhanceGatheringTooltip(GameTooltip)
 check(lines[2].text == "Benötigt Kräuterkunde (125)", "localized Requires label must work")
-setup("Localized node", "Kräuterkunde", 4, 1622)
+setup("Localized node", "Kräuterkunde", 4, 1624)
 ns.EnhanceGatheringTooltip(GameTooltip)
 check(lines[2].text == "Kräuterkunde (125)", "object IDs must work regardless of node language")
+setup("Localized node", "Kräuterkunde", 4, 1622)
+ns.EnhanceGatheringTooltip(GameTooltip)
+check(lines[2].text == "Kräuterkunde (100)", "object 1622 is Bruiseweed (100), not Kingsblood")
+setup("Localized node", "Bergbau", 4, 103713)
+ns.EnhanceGatheringTooltip(GameTooltip)
+check(lines[2].text == "Bergbau (1)", "alternative object IDs of a node must be known")
+setup("Localized node", "Bergbau", 4)
+data.guid = "GameObject-0-4444-0-12-1735-00006A1B2C"
+ns.EnhanceGatheringTooltip(GameTooltip)
+check(lines[2].text == "Bergbau (125)", "object ID must also be read from the object GUID")
+check(SKINNABLE == nil, "the test must not rely on a SKINNABLE global the client doesn't have")
+data = nil
+lines = { lines[1], lines[2] }
+lines[2].text = "Bergbau"
+scripts.OnUpdate(GameTooltip, 0.2)
+check(lines[2].text == "Bergbau", "tooltips without data must be left alone")
 setup("Unknown Forever Herb", "Kräuterkunde")
 check(not ns.EnhanceGatheringTooltip(GameTooltip), "unknown nodes must not guess requirements")
 setup("Königsblut", "Kräuterkunde", 0)
@@ -92,4 +115,24 @@ check(not ns.EnhanceGatheringTooltip(GameTooltip), "secret values must be ignore
 check(not ns.EnhanceGatheringTooltip({}), "other tooltips must remain unchanged")
 setup("Königsblut", "Kräuterkunde", 4, nil, nil, { "SECRET", "SECRET", "SECRET" })
 check(not ns.EnhanceGatheringTooltip(GameTooltip), "secret colors must not be compared")
+-- The game doesn't always word the requirement with the profession's name: a single red
+-- line on a known node is the requirement, in any language
+setup("Eisenvorkommen", "Erzabbau erforderlich")
+check(ns.EnhanceGatheringTooltip(GameTooltip) and lines[2].text == "Erzabbau erforderlich (125)",
+    "a differently worded red requirement must still get its number")
+check(not ns.EnhanceGatheringTooltip(GameTooltip) and lines[2].text == "Erzabbau erforderlich (125)",
+    "a differently worded requirement must not get its number twice")
+-- Node names of every supported client language
+for locale, title in pairs({ frFR = "Filon de cuivre", esES = "Filón de cobre", esMX = "Filón de cobre",
+    ruRU = "Медная жила", ptBR = "Veio de Cobre", ptPT = "Veio de Cobre", koKR = "구리 광맥",
+    zhCN = "铜矿", zhTW = "銅礦", enGB = "Copper Vein", itIT = "Copper Vein" }) do
+    clientLocale = locale
+    assert(loadfile("Data/Gathering.lua"))("Test", ns)
+    setup(title, "Bergbau")
+    check(ns.EnhanceGatheringTooltip(GameTooltip) and lines[2].text == "Bergbau (1)", locale .. ": node name must be known")
+    if locale ~= "enGB" and locale ~= "itIT" then
+        setup("Kupfervorkommen", "Bergbau")
+        check(not ns.EnhanceGatheringTooltip(GameTooltip), locale .. ": names of other languages must not be loaded")
+    end
+end
 print("Gathering tooltip checks passed: " .. checks)

@@ -36,6 +36,7 @@ Usage:
 import argparse
 import glob
 import html
+import http.client
 import json
 import os
 import re
@@ -115,7 +116,9 @@ class WebCache:
             try:
                 request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
                 body = urllib.request.urlopen(request, timeout=WEB_TIMEOUT).read().decode("utf8")
-            except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            except (OSError, http.client.HTTPException, UnicodeDecodeError) as e:
+                # OSError covers URLError, timeouts and connection errors; HTTPException a download
+                # that breaks off halfway (IncompleteRead)
                 self.failures[host] = self.failures.get(host, 0) + 1
                 print(f"  Warnung: {url} nicht erreichbar ({e})", flush=True)
                 if self.failures[host] == MAX_HOST_FAILURES:
@@ -160,10 +163,15 @@ def load_client_tables(wow_dir, product, web):
     storage = casc.Casc(wow_dir, product, casc.load_tact_keys(keys_path))
     hotfixes, hotfix_path = load_hotfixes(wow_dir, storage.build_name)
 
-    manifest = {e["tableName"]: e.get("db2FileDataID") for e in json.loads(web.get(MANIFEST_URL, "manifest.json"))}
+    manifest_text = web.get(MANIFEST_URL, "manifest.json")
+    if manifest_text is None:
+        sys.exit("Tabellenliste (WoWDBDefs manifest.json) fehlt (einmal ohne --offline ausführen)")
+    manifest = {e["tableName"]: e.get("db2FileDataID") for e in json.loads(manifest_text)}
     tables, non_english = {}, {}
     for name in TABLES:
         definition = web.get(DBD_URL.format(name), f"dbd_{name}.dbd")
+        if definition is None:
+            sys.exit(f"Tabellendefinition {name}.dbd fehlt (einmal ohne --offline ausführen)")
         fdid = manifest[name]
         tables[name] = db2.read_table(storage.read_fdid(fdid), definition, hotfixes)
         if not storage.locales[fdid] & casc.LOCALE_ENUS:
@@ -237,7 +245,8 @@ def foreverdb_recipes(web, profession):
             skill = re.search(r"(?:, skill|learn it at skill) (\d+)", html.unescape(re.sub(r"<[^>]+>", "", li)))
             if skill:
                 skills.setdefault(ref, int(skill[1]))
-        if not entries or "Next" not in body:
+        # Pager link to the following page, e.g. <a href="?p=2">Next ›</a>
+        if not entries or not re.search(rf'href="[^"]*\?p={page + 1}"', body):
             break
     return skills, available or None
 
@@ -420,10 +429,29 @@ def lua_string(text):
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+GENERATED_LINE = "-- Generated automatically by Tools/build_data.py from the client"
+
+
+def write_if_changed(path, lines):
+    """Writes the file unless only the client build in the header would change – a new build
+    without data changes must not touch every data file. Returns True if written."""
+    def body(text_lines):
+        return [line for line in text_lines if not line.startswith(GENERATED_LINE)]
+    if os.path.exists(path):
+        with open(path, encoding="utf8") as f:
+            if body(f.read().splitlines()) == body(lines):
+                return False
+    temp = path + ".tmp"
+    with open(temp, "w", encoding="utf8") as f:
+        f.write("\n".join(lines) + "\n")
+    os.replace(temp, path)  # never leave a half-written data file behind
+    return True
+
+
 def write_data_file(path, file_name, skill_line, build_name, recipes):
     lines = [
         f"-- Data/{file_name}.lua",
-        f"-- Generated automatically by Tools/build_data.py from the client ({build_name}).",
+        f"{GENERATED_LINE} ({build_name}).",
         "-- Do not edit by hand; run the script again instead.",
         "local _, ns = ...",
         "",
@@ -437,14 +465,13 @@ def write_data_file(path, file_name, skill_line, build_name, recipes):
         lines.append(f"    [{spell_id}] = {{ {recipe['skill']}, {lua_string(recipe['name'])}, {{ {reagents} }}, "
                      f"{recipe['created']}{levels} }},")
     lines.append("})")
-    with open(os.path.join(path, file_name + ".lua"), "w", encoding="utf8") as f:
-        f.write("\n".join(lines) + "\n")
+    return write_if_changed(os.path.join(path, file_name + ".lua"), lines)
 
 
 def write_recipe_items(path, build_name, items):
     lines = [
         "-- Data/RecipeItems.lua",
-        f"-- Generated automatically by Tools/build_data.py from the client ({build_name}).",
+        f"{GENERATED_LINE} ({build_name}).",
         "local _, ns = ...",
         "",
         "-- [recipe item] = taught spell",
@@ -453,8 +480,7 @@ def write_recipe_items(path, build_name, items):
     for item_id, spell_id in sorted(items.items()):
         lines.append(f"    [{item_id}] = {spell_id},")
     lines.append("})")
-    with open(os.path.join(path, "RecipeItems.lua"), "w", encoding="utf8") as f:
-        f.write("\n".join(lines) + "\n")
+    return write_if_changed(os.path.join(path, "RecipeItems.lua"), lines)
 
 
 def read_recipe_items(path):
@@ -495,8 +521,8 @@ def main():
     teaching_items = recipe_items(tables)
     item_ranks = {}
     for spell_id, rank in teaching_items.values():
-        if rank is not None:
-            item_ranks.setdefault(spell_id, rank)
+        if rank is not None:  # several items can teach the same recipe: the lowest rank counts
+            item_ranks[spell_id] = min(rank, item_ranks.get(spell_id, rank))
     all_recipes = set()
     created = created_items(tables)
     reagents_by_spell = {r["SpellID"]: r for r in tables["SpellReagents"].values()}

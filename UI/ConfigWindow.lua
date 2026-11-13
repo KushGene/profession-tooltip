@@ -596,7 +596,12 @@ local function RenderPreview()
     end
 end
 ns.RegisterEvent("MODIFIER_STATE_CHANGED", RenderPreview)
-ns.RegisterEvent("GET_ITEM_INFO_RECEIVED", RenderPreview)
+-- Only the previewed item itself; its reagent names arrive via TOOLTIP_REFRESH
+ns.RegisterEvent("GET_ITEM_INFO_RECEIVED", function(_, itemID)
+    if window and window.preview.itemID == itemID then
+        RenderPreview()
+    end
+end)
 ns.On("TOOLTIP_REFRESH", RenderPreview)
 
 StaticPopupDialogs["PROFESSIONTOOLTIP_RESET_SCAN"] = {

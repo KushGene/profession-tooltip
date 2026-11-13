@@ -57,10 +57,14 @@ local function RefreshItemTooltips()
     end
 end
 
--- Item names loaded later (reagent list of crafted items) -> rebuild in one batch
+-- Item names loaded later (reagent list of crafted items) -> rebuild in one batch.
+-- Only for items this addon asked for: the event fires for every item the client loads.
+local requestedItems = {} -- [itemID] = true while its name is still missing
 local itemInfoPending = false
-ns.RegisterEvent("GET_ITEM_INFO_RECEIVED", function()
-    if not (ns.db.showCraftedBy and ns.db.showCraftedReagents) or itemInfoPending then return end
+ns.RegisterEvent("GET_ITEM_INFO_RECEIVED", function(_, itemID)
+    if not requestedItems[itemID] then return end
+    requestedItems[itemID] = nil
+    if itemInfoPending then return end
     itemInfoPending = true
     C_Timer.After(0.5, function()
         itemInfoPending = false
@@ -84,6 +88,7 @@ end
 local function ItemName(itemID)
     local name = C_Item.GetItemNameByID(itemID)
     if not name then
+        requestedItems[itemID] = true
         C_Item.RequestLoadItemDataByID(itemID)
     end
     return name or ("#" .. itemID)

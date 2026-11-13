@@ -38,6 +38,16 @@ local function ReadReagents(recipeID)
     return reagents
 end
 
+-- Same name and same { itemID, count, ... } list?
+local function SameExtra(entry, name, reagents)
+    local old = entry[3]
+    if entry[2] ~= name or type(old) ~= "table" or #old ~= #reagents then return false end
+    for i = 1, #reagents do
+        if old[i] ~= reagents[i] then return false end
+    end
+    return true
+end
+
 local function Scan()
     local professionID, info = GetOpenProfessionID()
     if not professionID then return end
@@ -76,7 +86,7 @@ local function Scan()
             if not stored or stored == extra[recipeID] then
                 local reagents = ReadReagents(recipeID) or {}
                 local entry = extra[recipeID]
-                if not entry or #(entry[3] or {}) ~= #reagents then
+                if not entry or not SameExtra(entry, recipeInfo.name, reagents) then
                     extra[recipeID] = { nil, recipeInfo.name, reagents, profession = professionID }
                     indexDirty = true
                 end

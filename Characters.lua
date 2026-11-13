@@ -15,7 +15,10 @@ end
 local function Snapshot()
     local known = {}
     for spellID in pairs(ns.char.known) do
-        known[spellID] = true
+        local _, professionID = ns.GetRecipe(spellID)
+        if professionID and ns.HasProfession(professionID) then -- not of an unlearned profession
+            known[spellID] = true
+        end
     end
     -- Recipes of own professions that IsSpellKnown detects without a scan
     ns.ForEachRecipe(function(spellID, _, professionID)
@@ -74,6 +77,7 @@ function ns.GetAltsAbleToLearn(spellID)
     local recipe, professionID = ns.GetRecipe(spellID)
     if not recipe then return nil end
     local skill = ns.GetRequiredSkill(spellID, recipe)
+    if skill == 0 then return nil end -- required skill unknown: don't claim anyone can learn it
     local names
     for key, entry in pairs(ns.db.characters) do
         local info = entry.professions and entry.professions[professionID]

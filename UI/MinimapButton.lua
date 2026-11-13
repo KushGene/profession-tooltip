@@ -1,5 +1,6 @@
 -- UI/MinimapButton.lua
 -- Minimap button in LibDBIcon style: snaps to the minimap edge, even while dragging.
+-- Also: addon compartment entry and an optional LibDataBroker launcher.
 local _, ns = ...
 local L = ns.L
 
@@ -112,6 +113,29 @@ local function Update()
     end
 end
 
+-- Entry in the addon compartment (TOC: AddonCompartmentFunc)
+function ProfessionTooltip_OnAddonCompartmentClick()
+    ns.ToggleConfigWindow()
+end
+
+-- Launcher for LibDataBroker displays and minimap button collectors. The libraries are not
+-- shipped with this addon; the launcher only exists if another addon brings them along.
+local function RegisterBroker()
+    local broker = LibStub and LibStub("LibDataBroker-1.1", true)
+    if not broker or broker:GetDataObjectByName("ProfessionTooltip") then return end
+    broker:NewDataObject("ProfessionTooltip", {
+        type = "launcher",
+        text = "Profession Tooltip",
+        icon = ns.ICON,
+        OnClick = function() ns.ToggleConfigWindow() end,
+        OnTooltipShow = function(tooltip)
+            tooltip:AddLine("Profession Tooltip", 1, 1, 1)
+            tooltip:AddLine(L["MINIMAP_TOOLTIP"], 0.9, 0.9, 0.9)
+        end,
+    })
+end
+
+ns.RegisterEvent("PLAYER_LOGIN", RegisterBroker)
 ns.RegisterEvent("PLAYER_LOGIN", Update)
 ns.On("SETTINGS_CHANGED", function(_, key)
     if key == "minimap" then Update() end

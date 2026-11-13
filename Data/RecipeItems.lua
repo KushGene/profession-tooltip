@@ -1,5 +1,5 @@
 -- Data/RecipeItems.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70888patch1.60.1_Retail).
+-- Generated automatically by Tools/build_data.py from the client (WOW-70938patch1.60.1_Retail).
 local _, ns = ...
 
 -- [recipe item] = taught spell

@@ -2,9 +2,19 @@
 ## Title: Profession Tooltip
 ## Notes: Shows in the item tooltip which recipes of your professions use an ingredient and whether you know them.
 ## Notes-deDE: Zeigt im Item-Tooltip, welche Rezepte deiner Berufe eine Zutat verwenden und ob du sie kennst.
+## Notes-frFR: Indique les recettes utilisant un ingrédient – pour tous vos métiers.
+## Notes-esES: Muestra qué recetas usan un ingrediente, para todas tus profesiones.
+## Notes-esMX: Muestra qué recetas usan un ingrediente, para todas tus profesiones.
+## Notes-ruRU: Показывает рецепты, в которых используется ингредиент, — для всех ваших профессий.
+## Notes-ptBR: Mostra quais receitas usam um ingrediente – para todas as suas profissões.
+## Notes-koKR: 재료가 어떤 제조법에 쓰이는지 모든 전문기술에 대해 보여줍니다.
+## Notes-zhCN: 显示材料用于哪些配方——适用于你的所有专业。
+## Notes-zhTW: 顯示材料用於哪些配方——適用於你的所有專業。
 ## Author: KushGene
 ## Version: @project-version@
 ## IconTexture: Interface\Icons\INV_Scroll_03
+## Category: Professions
+## AddonCompartmentFunc: ProfessionTooltip_OnAddonCompartmentClick
 ## X-Curse-Project-ID: 1749915
 ## X-Wago-ID: kNMP8rGz
 ## SavedVariables: ProfessionTooltipDB

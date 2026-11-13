@@ -56,6 +56,29 @@ local function ResolveProfessionID(name, skillLine)
     end
 end
 
+-- Drops the scan data of a profession the character no longer has
+local function ForgetProfession(id)
+    for spellID in pairs(ns.char.known) do
+        local _, professionID = ns.GetRecipe(spellID)
+        if professionID == id then
+            ns.char.known[spellID] = nil
+        end
+    end
+    local dropped = false
+    for spellID, extra in pairs(ns.char.extra) do
+        if extra.profession == id then
+            ns.char.extra[spellID] = nil
+            dropped = true
+        end
+    end
+    ns.char.scanned[id] = nil
+    if dropped then
+        ns.InvalidateIndex()
+    end
+end
+
+local loggedIn = false
+
 function ns.DetectProfessions()
     if not (GetProfessions and GetProfessionInfo) then return end
     local detected = {}
@@ -82,6 +105,11 @@ function ns.DetectProfessions()
     for id in pairs(professions) do
         if not detected[id] then
             changed = true -- profession unlearned
+            -- Its recipes are gone with it. Only while playing: at login the profession
+            -- list may not be available yet, and scan data must not be lost over that.
+            if loggedIn then
+                ForgetProfession(id)
+            end
         end
     end
     if changed then
@@ -124,7 +152,10 @@ function ns.SetProfessionEnabled(id, enabled)
     ns.Fire("SETTINGS_CHANGED", "disabledProfessions")
 end
 
-ns.RegisterEvent("PLAYER_LOGIN", ns.DetectProfessions)
+ns.RegisterEvent("PLAYER_LOGIN", function()
+    ns.DetectProfessions()
+    loggedIn = true
+end)
 ns.RegisterEvent("SKILL_LINES_CHANGED", ns.DetectProfessions)
 
 -- Newly learned recipe -> rebuild tooltips (IsSpellKnown reports it right away)

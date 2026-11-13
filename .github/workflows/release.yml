@@ -26,6 +26,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # A failing offline test stops the release
+      - name: Run tests
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq luajit
+          for test in Tools/test_*.lua; do luajit "$test"; done
+          python3 -m py_compile Tools/*.py .github/scripts/extract_changelog.py
       # Use only this version's section from CHANGELOG.md as "What's new"
       - name: Extract changelog for this version
         run: python3 .github/scripts/extract_changelog.py "${{ github.ref_name }}"

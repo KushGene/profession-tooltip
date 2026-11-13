@@ -1,55 +1,512 @@
--- Gathering requirements for Classic world objects (not recipe skill ranks).
--- Object IDs are locale-independent. Names also cover tooltips without an ID.
+-- Data/Gathering.lua
+-- Generated automatically by Tools/build_gathering.py (node names: Wowhead, WoW Forever).
+-- Do not edit by hand; change the node list in the script and run it again.
+--
+-- Gathering requirements of world objects (not recipe skill ranks). Object IDs are
+-- locale-independent; the names cover tooltips that don't tell the object's ID.
 local _, ns = ...
 ns.GatheringNodes = {}
 
-local function Node(profession, skill, objectID, english, german)
-    local node = { profession = profession, skill = skill }
-    ns.GatheringNodes[objectID] = node
-    ns.GatheringNodes[english] = node
-    ns.GatheringNodes[german] = node
+-- { profession, required skill, { objectID, ... } }
+local NODES = {
+    { 182, 1, { 1618, 3724 } }, -- Peacebloom
+    { 182, 1, { 1617, 3725 } }, -- Silverleaf
+    { 182, 15, { 1619, 3726 } }, -- Earthroot
+    { 182, 50, { 1620, 3727 } }, -- Mageroyal
+    { 182, 70, { 1621, 3729 } }, -- Briarthorn
+    { 182, 85, { 2045 } }, -- Stranglekelp
+    { 182, 100, { 1622, 3730 } }, -- Bruiseweed
+    { 182, 115, { 1623 } }, -- Wild Steelbloom
+    { 182, 120, { 1628 } }, -- Grave Moss
+    { 182, 125, { 1624 } }, -- Kingsblood
+    { 182, 150, { 2041 } }, -- Liferoot
+    { 182, 160, { 2042 } }, -- Fadeleaf
+    { 182, 170, { 2046 } }, -- Goldthorn
+    { 182, 185, { 2043 } }, -- Khadgar's Whisker
+    { 182, 195, { 2044 } }, -- Wintersbite
+    { 182, 205, { 2866 } }, -- Firebloom
+    { 182, 210, { 142140, 180165 } }, -- Purple Lotus
+    { 182, 220, { 142141, 176642 } }, -- Arthas' Tears
+    { 182, 230, { 142142, 176636, 180164 } }, -- Sungrass
+    { 182, 235, { 142143 } }, -- Blindweed
+    { 182, 245, { 142144 } }, -- Ghost Mushroom
+    { 182, 250, { 142145, 176637 } }, -- Gromsblood
+    { 182, 260, { 176583, 176638, 180167 } }, -- Golden Sansam
+    { 182, 270, { 176584, 176639, 180168 } }, -- Dreamfoil
+    { 182, 280, { 176586, 176640, 180166 } }, -- Mountain Silversage
+    { 182, 285, { 176587, 176641 } }, -- Plaguebloom
+    { 182, 290, { 176588 } }, -- Icecap
+    { 182, 300, { 176589 } }, -- Black Lotus
+    { 186, 1, { 1731, 2055, 3763, 103713 } }, -- Copper Vein
+    { 186, 65, { 1732, 2054, 3764, 103711 } }, -- Tin Vein
+    { 186, 75, { 1733, 105569 } }, -- Silver Vein
+    { 186, 125, { 1735 } }, -- Iron Deposit
+    { 186, 155, { 1734, 150080, 181109 } }, -- Gold Vein
+    { 186, 175, { 2040, 150079, 176645 } }, -- Mithril Deposit
+    { 186, 230, { 2047, 150081, 181108 } }, -- Truesilver Deposit
+    { 186, 230, { 165658 } }, -- Dark Iron Deposit
+    { 186, 245, { 324, 150082, 176643 } }, -- Small Thorium Vein
+    { 186, 275, { 175404 } }, -- Rich Thorium Vein
+    { 186, 175, { 123310 } }, -- Ooze Covered Mithril Deposit
+    { 186, 230, { 123309 } }, -- Ooze Covered Truesilver Deposit
+    { 186, 245, { 123848 } }, -- Ooze Covered Thorium Vein
+    { 186, 275, { 177388 } }, -- Ooze Covered Rich Thorium Vein
+}
+
+-- Node names per client language, in the order of NODES
+local NAMES = {
+    enUS = {
+        "Peacebloom",
+        "Silverleaf",
+        "Earthroot",
+        "Mageroyal",
+        "Briarthorn",
+        "Stranglekelp",
+        "Bruiseweed",
+        "Wild Steelbloom",
+        "Grave Moss",
+        "Kingsblood",
+        "Liferoot",
+        "Fadeleaf",
+        "Goldthorn",
+        "Khadgar's Whisker",
+        "Wintersbite",
+        "Firebloom",
+        "Purple Lotus",
+        "Arthas' Tears",
+        "Sungrass",
+        "Blindweed",
+        "Ghost Mushroom",
+        "Gromsblood",
+        "Golden Sansam",
+        "Dreamfoil",
+        "Mountain Silversage",
+        "Plaguebloom",
+        "Icecap",
+        "Black Lotus",
+        "Copper Vein",
+        "Tin Vein",
+        "Silver Vein",
+        "Iron Deposit",
+        "Gold Vein",
+        "Mithril Deposit",
+        "Truesilver Deposit",
+        "Dark Iron Deposit",
+        "Small Thorium Vein",
+        "Rich Thorium Vein",
+        "Ooze Covered Mithril Deposit",
+        "Ooze Covered Truesilver Deposit",
+        "Ooze Covered Thorium Vein",
+        "Ooze Covered Rich Thorium Vein",
+    },
+    deDE = {
+        "Friedensblume",
+        "Silberblatt",
+        "Erdwurzel",
+        "Maguskönigskraut",
+        "Wilddornrose",
+        "Würgetang",
+        "Beulengras",
+        "Wildstahlblume",
+        "Grabmoos",
+        "Königsblut",
+        "Lebenswurz",
+        "Blassblatt",
+        "Golddorn",
+        "Khadgars Schnurrbart",
+        "Winterbiss",
+        "Feuerblüte",
+        "Lila Lotus",
+        "Arthas' Tränen",
+        "Sonnengras",
+        "Blindkraut",
+        "Geisterpilz",
+        "Gromsblut",
+        "Goldener Sansam",
+        "Traumblatt",
+        "Bergsilbersalbei",
+        "Pestblüte",
+        "Eiskappe",
+        "Schwarzer Lotus",
+        "Kupfervorkommen",
+        "Zinnvorkommen",
+        "Silbervorkommen",
+        "Eisenvorkommen",
+        "Goldvorkommen",
+        "Mithrilvorkommen",
+        "Echtsilbervorkommen",
+        "Dunkeleisenvorkommen",
+        "Kleines Thoriumvorkommen",
+        "Reiches Thoriumvorkommen",
+        "Brühschlammbedeckte Mithrilablagerung",
+        "Brühschlammbedeckte Echtsilberablagerung",
+        "Brühschlammbedecktes Thoriumvorkommen",
+        "Brühschlammbedecktes reiches Thoriumvorkommen",
+    },
+    frFR = {
+        "Pacifique",
+        "Feuillargent",
+        "Terrestrine",
+        "Mage royal",
+        "Eglantine",
+        "Etouffante",
+        "Doulourante",
+        "Aciérite sauvage",
+        "Tombeline",
+        "Sang-royal",
+        "Vietérule",
+        "Pâlerette",
+        "Dorépine",
+        "Moustache de Khadgar",
+        "Hivernale",
+        "Fleur de feu",
+        "Lotus pourpre",
+        "Larmes d'Arthas",
+        "Soleillette",
+        "Aveuglette",
+        "Champignon fantôme",
+        "Gromsang",
+        "Sansam doré",
+        "Feuillerêve",
+        "Sauge-argent des montagnes",
+        "Fleur de peste",
+        "Calot de glace",
+        "Lotus noir",
+        "Filon de cuivre",
+        "Filon d'étain",
+        "Filon d'argent",
+        "Gisement de fer",
+        "Filon d'or",
+        "Gisement de mithril",
+        "Gisement de vrai-argent",
+        "Gisement de sombrefer",
+        "Petit filon de thorium",
+        "Riche filon de thorium",
+        "Gisement de mithril couvert de vase",
+        "Gisement de vrai-argent couvert de vase",
+        "Filon de thorium couvert de limon",
+        "Riche filon de thorium couvert de limon",
+    },
+    esES = {
+        "Flor de paz",
+        "Hojaplata",
+        "Raíz de tierra",
+        "Marregal",
+        "Brezospina",
+        "Alga estranguladora",
+        "Hierba cardenal",
+        "Acérita salvaje",
+        "Musgo de tumba",
+        "Sangrerregia",
+        "Vidarraíz",
+        "Pálida",
+        "Espina de oro",
+        "Vibrisa de Khadgar",
+        "Invernalia",
+        "Flor de fuego",
+        "Loto cárdeno",
+        "Lágrimas de Arthas",
+        "Solea",
+        "Carolina",
+        "Champiñón fantasma",
+        "Gromsanguina",
+        "Sansam dorado",
+        "Hojasueño",
+        "Salviargenta de montaña",
+        "flor de peste",
+        "Setelo",
+        "Loto negro",
+        "Filón de cobre",
+        "Filón de estaño",
+        "Filón de plata",
+        "Depósito de hierro",
+        "Filón de oro",
+        "Depósito de mitril",
+        "Depósito de veraplata",
+        "Depósito de los Hierro Negro",
+        "Filón pequeño de torio",
+        "Filón de torio enriquecido",
+        "Depósito de mitril cubierto de moco",
+        "Depósito de veraplata cubierta de moco",
+        "Filón de torio cubierto de moco",
+        "Filón de torio enriquecido cubierto de moco",
+    },
+    esMX = {
+        "Flor de paz",
+        "Hojaplata",
+        "Raíz de tierra",
+        "Marregal",
+        "Brezospina",
+        "Alga estranguladora",
+        "Hierba cardenal",
+        "Acérita salvaje",
+        "Musgo de tumba",
+        "Sangrerregia",
+        "Vidarraíz",
+        "Pálida",
+        "Espina de oro",
+        "Mostacho de Khadgar",
+        "Invernalia",
+        "Flor de fuego",
+        "Loto cárdeno",
+        "Lágrimas de Arthas",
+        "Solea",
+        "Carolina",
+        "Champiñón fantasma",
+        "Gromsanguina",
+        "Sansam dorado",
+        "Hojasueño",
+        "Salviargenta de montaña",
+        "Flor de plaga",
+        "Setelo",
+        "Loto negro",
+        "Filón de cobre",
+        "Filón de estaño",
+        "Filón de plata",
+        "Depósito de hierro",
+        "Filón de oro",
+        "Depósito de mitril",
+        "Depósito de veraplata",
+        "Depósito de hierro negro",
+        "Filón pequeño de torio",
+        "Filón de torio enriquecido",
+        "Depósito de mitril cubierto de moco",
+        "[Ooze Covered Truesilver Deposit]",
+        "Filón de torio cubierto de moco",
+        "Filón de torio enriquecido cubierto de moco",
+    },
+    ruRU = {
+        "Мироцвет",
+        "Сребролист",
+        "Землекорень",
+        "Магороза",
+        "Остротерн",
+        "Удавник",
+        "Синячник",
+        "Дикий сталецвет",
+        "Могильный мох",
+        "Королевская кровь",
+        "Жизнекорень",
+        "Бледнолист",
+        "Златошип",
+        "Кадгаров ус",
+        "Морозник",
+        "Огнецвет",
+        "Лиловый лотос",
+        "Слезы Артаса",
+        "Солнечник",
+        "Пастушья сумка",
+        "Призрачная поганка",
+        "Кровь Грома",
+        "Золотой сансам",
+        "Снолист",
+        "Горный серебряный шалфей",
+        "Чумоцвет",
+        "Ледяной зев",
+        "Черный лотос",
+        "Медная жила",
+        "Оловянная жила",
+        "Серебряная жила",
+        "Залежи железа",
+        "Золотая жила",
+        "Мифриловые залежи",
+        "Залежи истинного серебра",
+        "Залежи черного железа",
+        "Малая ториевая жила",
+        "Богатая ториевая жила",
+        "Покрытые слизью мифриловые залежи",
+        "Покрытые слизью залежи истинного серебра",
+        "Покрытая слизью ториевая жила",
+        "Покрытая слизью богатая ториевая жила",
+    },
+    ptBR = {
+        "Botão-da-paz",
+        "Folha-prata",
+        "Raiz-telúrica",
+        "Magi-real",
+        "Cravespinho",
+        "Estrangulalga",
+        "Ervamossa",
+        "Ácera-agreste",
+        "Musgo-de-tumba",
+        "Sangue-real",
+        "Raiz-da-vida",
+        "Some-folha",
+        "Espinheira-dourada",
+        "Bigode-de-hadgar",
+        "Boquinha-do-inverno",
+        "Ignídea",
+        "Lótus Roxo",
+        "Lágrimas-de-arthas",
+        "Ervassol",
+        "Ervacega",
+        "Cogumelo-fantasma",
+        "Sangue-de-grom",
+        "Sonsona-dourada",
+        "Folha-de-sonho",
+        "Sálvia-prata-da-montanha",
+        "Pragônia",
+        "Chapéu-de-gelo",
+        "Lótus Preto",
+        "Veio de Cobre",
+        "Veio de Estanho",
+        "Veio de Prata",
+        "Depósito de Ferro",
+        "Veio de Ouro",
+        "Depósito de Mithril",
+        "Depósito de Veraprata",
+        "Depósito de Ferro Negro",
+        "Veio de Tório Escasso",
+        "Veio de Tório Abundante",
+        "Depósito de Mithril Coberto de Gosma",
+        "Depósito de Veraprata Coberto de Gosma",
+        "Veio de Tório Coberto de Gosma",
+        "Veio de Tório Abundante e Coberto de Gosma",
+    },
+    koKR = {
+        "평온초",
+        "은엽수 덤불",
+        "뱀뿌리",
+        "마법초",
+        "찔레가시",
+        "갈래물풀",
+        "생채기풀",
+        "야생 철쭉",
+        "무덤이끼",
+        "왕꽃잎풀",
+        "생명의 뿌리",
+        "미명초",
+        "황금가시",
+        "카드가의 수염",
+        "겨울서리풀",
+        "화염초",
+        "보라 연꽃",
+        "아서스의 눈물",
+        "태양풀",
+        "실명초",
+        "유령버섯",
+        "그롬의 피",
+        "황금 산삼",
+        "꿈풀",
+        "은초롱이",
+        "역병초",
+        "얼음송이",
+        "검은 연꽃",
+        "구리 광맥",
+        "주석 광맥",
+        "은 광맥",
+        "철 광맥",
+        "금 광맥",
+        "미스릴 광맥",
+        "진은 광맥",
+        "검은무쇠 광맥",
+        "작은 토륨 광맥",
+        "풍부한 토륨 광맥",
+        "진흙으로 덮인 미스릴 광맥",
+        "진흙으로 덮인 진은 광맥",
+        "진흙으로 덮인 토륨 광맥",
+        "진흙으로 덮인 풍부한 토륨 광맥",
+    },
+    zhCN = {
+        "宁神花",
+        "银叶草",
+        "地根草",
+        "魔皇草",
+        "石南草",
+        "荆棘藻",
+        "跌打草",
+        "野钢花",
+        "墓地苔",
+        "皇血草",
+        "活根草",
+        "枯叶草",
+        "金棘草",
+        "卡德加的胡须",
+        "冬刺草",
+        "火焰花",
+        "紫莲花",
+        "阿尔萨斯之泪",
+        "太阳草",
+        "盲目草",
+        "幽灵菇",
+        "格罗姆之血",
+        "黄金参",
+        "梦叶草",
+        "山鼠草",
+        "瘟疫花",
+        "冰盖草",
+        "黑莲花",
+        "铜矿",
+        "锡矿",
+        "银矿",
+        "铁矿石",
+        "金矿石",
+        "秘银矿脉",
+        "真银矿石",
+        "黑铁矿脉",
+        "瑟银矿脉",
+        "富瑟银矿",
+        "软泥覆盖的秘银矿脉",
+        "软泥覆盖的真银矿脉",
+        "软泥覆盖的瑟银矿脉",
+        "软泥覆盖的富瑟银矿脉",
+    },
+    zhTW = {
+        "寧神花",
+        "銀葉草",
+        "地根草",
+        "魔皇草",
+        "石南草",
+        "荊棘藻",
+        "跌打草",
+        "野鋼花",
+        "墓地苔",
+        "皇血草",
+        "活根草",
+        "枯葉草",
+        "金棘草",
+        "卡德加的鬍鬚",
+        "冬刺草",
+        "火焰花",
+        "紫蓮花",
+        "阿薩斯之淚",
+        "太陽草",
+        "盲目草",
+        "幽靈菇",
+        "格羅姆高之血",
+        "黃金蔘",
+        "夢葉草",
+        "山鼠草",
+        "瘟疫花",
+        "冰蓋草",
+        "黑蓮花",
+        "銅礦",
+        "錫礦",
+        "銀礦",
+        "鐵礦床",
+        "金礦脈",
+        "秘銀礦床",
+        "真銀礦床",
+        "黑鐵礦床",
+        "瑟銀礦脈",
+        "富瑟銀礦",
+        "軟泥覆蓋的祕銀礦脈",
+        "軟泥覆蓋的真銀礦脈",
+        "軟泥覆蓋的瑟銀礦脈",
+        "軟泥覆蓋的富瑟銀礦脈",
+    },
+}
+local ALIASES = { enGB = "enUS", ptPT = "ptBR" }
+
+local locale = GetLocale()
+local localized = NAMES[ALIASES[locale] or locale]
+for index, entry in ipairs(NODES) do
+    local node = { profession = entry[1], skill = entry[2] }
+    for _, objectID in ipairs(entry[3]) do
+        ns.GatheringNodes[objectID] = node
+    end
+    ns.GatheringNodes[NAMES.enUS[index]] = node -- also for languages without names
+    if localized then
+        ns.GatheringNodes[localized[index]] = node
+    end
 end
-
-Node(182, 1,   1618, "Peacebloom", "Friedensblume")
-Node(182, 1,   1617, "Silverleaf", "Silberblatt")
-Node(182, 15,  1619, "Earthroot", "Erdwurzel")
-Node(182, 50,  1620, "Mageroyal", "Maguskönigskraut")
-Node(182, 70,  1621, "Briarthorn", "Wilddornrose")
-Node(182, 85,  2045, "Stranglekelp", "Würgetang")
-Node(182, 100, 1623, "Bruiseweed", "Beulengras")
-Node(182, 115, 1624, "Wild Steelbloom", "Wildstahlblume")
-Node(182, 120, 1628, "Grave Moss", "Grabmoos")
-Node(182, 125, 1622, "Kingsblood", "Königsblut")
-Node(182, 150, 2041, "Liferoot", "Lebenswurz")
-Node(182, 160, 2042, "Fadeleaf", "Blassblatt")
-Node(182, 170, 2046, "Goldthorn", "Golddorn")
-Node(182, 185, 2043, "Khadgar's Whisker", "Khadgars Schnurrbart")
-Node(182, 195, 2044, "Wintersbite", "Winterbiss")
-Node(182, 205, 2866, "Firebloom", "Feuerblüte")
-Node(182, 210, 142140, "Purple Lotus", "Lila Lotus")
-Node(182, 220, 142141, "Arthas' Tears", "Arthas' Tränen")
-Node(182, 230, 142142, "Sungrass", "Sonnengras")
-Node(182, 235, 142143, "Blindweed", "Blindkraut")
-Node(182, 245, 142144, "Ghost Mushroom", "Geisterpilz")
-Node(182, 250, 142145, "Gromsblood", "Gromsblut")
-Node(182, 260, 176583, "Golden Sansam", "Goldener Sansam")
-Node(182, 270, 176584, "Dreamfoil", "Traumblatt")
-Node(182, 280, 176586, "Mountain Silversage", "Bergsilbersalbei")
-Node(182, 285, 176587, "Plaguebloom", "Pestblüte")
-Node(182, 290, 176588, "Icecap", "Eiskappe")
-Node(182, 300, 176589, "Black Lotus", "Schwarzer Lotus")
-
-Node(186, 1,   1731, "Copper Vein", "Kupfervorkommen")
-Node(186, 65,  1732, "Tin Vein", "Zinnvorkommen")
-Node(186, 75,  1733, "Silver Vein", "Silbervorkommen")
-Node(186, 125, 1735, "Iron Deposit", "Eisenvorkommen")
-Node(186, 155, 1734, "Gold Vein", "Goldvorkommen")
-Node(186, 175, 2040, "Mithril Deposit", "Mithrilvorkommen")
-Node(186, 230, 2047, "Truesilver Deposit", "Echtsilbervorkommen")
-Node(186, 230, 165658, "Dark Iron Deposit", "Dunkeleisenvorkommen")
-Node(186, 245, 324, "Small Thorium Vein", "Kleines Thoriumvorkommen")
-Node(186, 275, 175404, "Rich Thorium Vein", "Reiches Thoriumvorkommen")
-Node(186, 175, 123310, "Ooze Covered Mithril Deposit", "Brühschlammbedecktes Mithrilvorkommen")
-Node(186, 230, 123309, "Ooze Covered Truesilver Deposit", "Brühschlammbedecktes Echtsilbervorkommen")
-Node(186, 245, 123848, "Ooze Covered Thorium Vein", "Brühschlammbedecktes Thoriumvorkommen")
-Node(186, 275, 177388, "Ooze Covered Rich Thorium Vein", "Brühschlammbedecktes reiches Thoriumvorkommen")

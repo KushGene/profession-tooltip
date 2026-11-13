@@ -81,10 +81,12 @@ def read_table(data, dbd_text, hotfixes=None):
      _min_id, _max_id, _locale, flags, id_index, _total_fields, _bitpacked_offset,
      _lookup_columns, storage_info_size, common_size, pallet_size, section_count
      ) = struct.unpack("<9IHH7I", data[136:204])
-    columns = [c for c in parse_dbd(dbd_text, layout_hash) if c.inline]
+    all_columns = parse_dbd(dbd_text, layout_hash)  # once: parsing per record costs most of the run time
+    columns = [c for c in all_columns if c.inline]
     if len(columns) != field_count:
         raise ValueError(f"DBD hat {len(columns)} Felder, Datei {field_count}")
-    id_column = next((c for c in parse_dbd(dbd_text, layout_hash) if c.is_id), None)
+    id_column = next((c for c in all_columns if c.is_id), None)
+    relation_columns = [c for c in all_columns if not c.inline and not c.is_id]
 
     pos = 204
     sections = []
@@ -212,9 +214,8 @@ def read_table(data, dbd_text, hotfixes=None):
             if id_column is not None:
                 row[id_column.name] = record_id
             if record_index in relation:
-                for column in parse_dbd(dbd_text, layout_hash):
-                    if not column.inline and not column.is_id:
-                        row[column.name] = relation[record_index]
+                for column in relation_columns:
+                    row[column.name] = relation[record_index]
             rows[record_id] = row
         for new_id, old_id in copies:
             if old_id in rows:
@@ -224,7 +225,7 @@ def read_table(data, dbd_text, hotfixes=None):
                 rows[new_id] = copy
         virtual_record += count * record_size
     if hotfixes:
-        _apply_hotfixes(rows, hotfixes.get(table_hash, {}), parse_dbd(dbd_text, layout_hash))
+        _apply_hotfixes(rows, hotfixes.get(table_hash, {}), all_columns)
     return rows
 
 

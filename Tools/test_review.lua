@@ -49,12 +49,22 @@ GetNumTrainerServices = function() return 1 end
 GetTrainerServiceInfo = function() return offerName, nil, "available" end
 GetTrainerServiceSkillReq = function() return "Alchemy", 50 end
 C_TooltipInfo = { GetTrainerService = function() return { id = tooltipID } end }
+local tradeskillTrainer, filters, filterChanges = false, { available = true, unavailable = false, used = true }, 0
+IsTradeskillTrainer = function() return tradeskillTrainer end
+GetTrainerServiceTypeFilter = function(kind) return filters[kind] end
+SetTrainerServiceTypeFilter = function(kind, enabled) filters[kind] = enabled; filterChanges = filterChanges + 1 end
 assert(loadfile("Trainer.lua"))("Test", ns)
+tooltipID = 2
+events.TRAINER_SHOW()
+assert(next(ns.db.trainerSkills) == nil and filterChanges == 0, "class trainers must not be scanned or have their filters touched")
+tradeskillTrainer, tooltipID = true, nil
 events.TRAINER_SHOW()
 assert(next(ns.db.trainerSkills) == nil, "ambiguous name must not pick a recipe")
 tooltipID = 2
 events.TRAINER_SHOW()
 assert(ns.db.trainerSkills[2] == 50, "tooltip must resolve ambiguous name")
+assert(filterChanges == 4 and filters.unavailable == false and filters.used == true,
+    "only disabled filters may be switched, and they must be restored")
 offerName, tooltipID = "Unique", 4
 events.TRAINER_SHOW()
 assert(ns.db.trainerSkills[4] == nil, "wrong-profession tooltip must not match")

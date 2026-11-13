@@ -14,6 +14,8 @@ the installed WoW: Forever client. Not loaded by WoW and excluded from releases 
    ```sh
    WOW_DIR="/path/to/World of Warcraft" python3 Tools/build_data.py
    ```
+   Files are only rewritten if their data changed; a new client build alone leaves them (and the
+   build named in their header) untouched.
    To only check what would change (no files written), add `--dry-run`. The report at the end
    lists new, removed and changed recipes per profession and tells you whether an update is worth it.
 3. Check the output (recipes per profession, see below), `/reload` in game and test briefly.
@@ -21,6 +23,19 @@ the installed WoW: Forever client. Not loaded by WoW and excluded from releases 
 
 Requires only Python 3, no extra packages. Every run fetches the web data again, so a run takes
 about a minute.
+
+## Gathering nodes
+
+`Data/Gathering.lua` (herb and ore nodes, their required skill, object IDs and names in every
+client language) is generated separately:
+
+```sh
+python3 Tools/build_gathering.py
+```
+
+The node list (profession, skill, object IDs) lives in the script. Names come from Wowhead's
+WoW: Forever tooltips; every object ID is checked there against the expected node and skill,
+and nothing is written if anything disagrees. Only needed when nodes are added or changed.
 
 ## Options
 

@@ -5,6 +5,25 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.1.4 – 2026-11-13
+
+### Fixed
+- The required skill on red Skinnable labels now actually appears; the addon looked for a text the game does not provide
+- Bruiseweed, Wild Steelbloom and Kingsblood no longer show each other's required Herbalism skill
+- Herb and ore nodes that exist under several object IDs (e.g. Copper Vein, Sungrass, Dreamfoil) are all recognized
+- Recipes of a profession you unlearned no longer count as known, neither for you nor under "Known by" on your other characters
+- "Learnable by" no longer lists characters for recipes whose required skill is unknown
+- Recipes missing from the database are updated when their names, reagents or quantities change, not only when the number of reagents changes
+- Class trainers are no longer scanned, avoiding unnecessary spell-list rebuilds that could briefly freeze the game; profession trainer filters are only changed when needed
+
+### Improved
+- Gathering requirements on herb and ore nodes now work in every supported client language (English, German, French, Spanish, Russian, Portuguese, Korean, Simplified and Traditional Chinese), not only English and German
+- Tooltips are no longer rebuilt for every item the game loads (e.g. while browsing the Auction House), only for items whose names the addon is waiting for
+- Profession Tooltip appears in the addon compartment and, if a LibDataBroker display is installed, as a launcher there
+- Recipe data generation is faster, handles missing offline caches and interrupted downloads more clearly, and no longer rewrites data files just because the client build changed
+- Gathering node names and requirements can now be regenerated and checked against Wowhead's Forever data
+- Offline regression tests now run on pushes, pull requests and before publishing a release
+
 ## 1.1.3 – 2026-11-12
 
 ### Improved

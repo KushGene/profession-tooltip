@@ -1,5 +1,5 @@
 -- Locales/ptBR.lua
-if GetLocale() ~= "ptBR" then return end
+if not (GetLocale() == "ptBR" or GetLocale() == "ptPT") then return end
 local _, ns = ...
 local L = ns.L
 
@@ -12,6 +12,20 @@ L["HINT_SCAN"] = "(Abra a janela da profissão uma vez para atualizar)"
 L["OTHER_PROFESSIONS"] = "Também usado por:"
 L["SECTION_KNOWN"] = "Aprendidas"
 L["SECTION_UNKNOWN"] = "Não aprendidas"
+
+-- Professions (fallback in case the client returns no name)
+L["PROFESSION_ALCHEMY"] = "Alquimia"
+L["PROFESSION_BLACKSMITHING"] = "Ferraria"
+L["PROFESSION_ENCHANTING"] = "Encantamento"
+L["PROFESSION_ENGINEERING"] = "Engenharia"
+L["PROFESSION_LEATHERWORKING"] = "Couraria"
+L["PROFESSION_TAILORING"] = "Alfaiataria"
+L["PROFESSION_MINING"] = "Mineração"
+L["PROFESSION_HERBALISM"] = "Herborismo"
+L["PROFESSION_SKINNING"] = "Esfolamento"
+L["PROFESSION_COOKING"] = "Culinária"
+L["PROFESSION_FIRST_AID"] = "Primeiros Socorros"
+L["PROFESSION_FISHING"] = "Pesca"
 
 -- Settings
 L["SUBTITLE"] = "Mostra quais receitas usam um ingrediente – para todas as suas profissões."
@@ -102,7 +116,6 @@ L["OPT_VALUE"] = "Mostrar valor de leilão do produto"
 L["OPT_VALUE_DESC"] = "Requer Auctionator. Mostra o último preço escaneado do item fabricado."
 L["SECTION_CHARACTERS"] = "Personagens"
 L["CURRENT_CHARACTER"] = "(você)"
-L["MORE_CHARACTERS"] = "… e mais %d"
 L["SECTION_LEGACY"] = "CookingTooltip / AlchemyTooltip"
 L["OPT_LEGACY_CHECK"] = "Lembrar ao entrar"
 L["OPT_LEGACY_CHECK_DESC"] = "Oferece importar as configurações e desativar os addons antigos enquanto estiverem ativos."
