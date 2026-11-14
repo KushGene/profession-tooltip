@@ -19,6 +19,7 @@ assert(loadfile("Core.lua"))("Test", ns)
 events.dispatch(nil, "ADDON_LOADED", "Test")
 assert(ns.db.showUnlearnedDifficulty == false, "new option must default to off")
 assert(ns.db.showSkillDifficulty == true, "skill difficulty must default to on")
+assert(ns.db.showUnownedRequirements == false, "requirements for unlearned professions must default to hidden")
 local rank = 120
 ns.GetProfessionRank = function() return rank, 300 end
 ns.GetProfession = function() return { id = 185, icon = "Cooking", order = 1 } end
@@ -127,4 +128,28 @@ check(contains(tooltip(), "|cffaaaaaaCatfish|r"), "disabling must restore old ap
 check(not contains(tooltip(), "(Not known)"), "disabled option must preserve old labels")
 ns.char.known[3] = 2
 check(ns.GetKnownDifficulty(3) == 2, "incomplete thresholds must fall back to scanned difficulty")
+-- Header details must use a ruRU-font-safe separator, and only between two details.
+GetLocale = function() return "ruRU" end
+assert(loadfile("Locales/ruRU.lua"))("Test", ns)
+for _, style in ipairs({ "icon", "name", "both" }) do
+    ns.SetOption("headerStyle", style)
+    for _, options in ipairs({
+        { true, true, "120/300  •  " .. string.format(ns.L.KNOWN_OF, 0, 1) },
+        { true, false, "120/300" },
+        { false, true, string.format(ns.L.KNOWN_OF, 0, 1) },
+        { false, false },
+    }) do
+        ns.SetOption("showProfessionRank", options[1])
+        ns.SetOption("showKnownCount", options[2])
+        local text = tooltip()
+        local header = text:match("^%s*([^\n]+)") or ""
+        check(not contains(header, "·"), "header must not use the unsupported middle dot")
+        if options[3] then
+            check(contains(header, "|cff888888" .. options[3] .. "|r"), "wrong header details for " .. style)
+        else
+            check(not contains(header, "|cff888888"), "disabled details must not appear")
+        end
+        check(contains(header, "•") == (options[1] and options[2]), "separator requires both header details")
+    end
+end
 print("Unlearned difficulty tests passed (" .. checks .. " checks)")

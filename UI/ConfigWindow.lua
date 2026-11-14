@@ -151,6 +151,7 @@ local function BuildProfessionsTab(page)
     col:Header(L["SECTION_FILTER"])
     col:Check(Option("onlyOwnProfessions", "OPT_ONLY_OWN", "OPT_ONLY_OWN_DESC"))
     col:Check(Option("showOtherProfessionIcons", "OPT_OTHER_ICONS", "OPT_OTHER_ICONS_DESC", IsOnlyOwn, true))
+    col:Check(Option("showUnownedRequirements", "OPT_UNOWNED_REQUIREMENTS", "OPT_UNOWNED_REQUIREMENTS_DESC"))
     col:Header(L["SECTION_PROFESSION_LIST"])
     for _, profession in ipairs(ns.Professions) do
         CreateProfessionRow(page, col, profession)

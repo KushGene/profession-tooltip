@@ -131,7 +131,7 @@ end
 -- ----------------------------------------------------------------------------
 -- Lines
 -- ----------------------------------------------------------------------------
--- Profession line depending on the design settings, e.g. "[Icon] Leatherworking  70/150 · 16/82 learned"
+-- Profession line depending on the design settings, e.g. "[Icon] Leatherworking  70/150 • 16/82 learned"
 local function FormatHeader(profession, rank, maxRank, knownCount, totalCount)
     local db = ns.db
     local text
@@ -151,7 +151,8 @@ local function FormatHeader(profession, rank, maxRank, knownCount, totalCount)
         details[#details + 1] = string.format(L["KNOWN_OF"], knownCount, totalCount)
     end
     if #details > 0 then
-        text = text .. "  " .. Colorize(COLOR_HINT, table.concat(details, "  ·  "))
+        -- Use the recipe-line bullet: the middle dot is missing in the ruRU tooltip font.
+        text = text .. "  " .. Colorize(COLOR_HINT, table.concat(details, "  •  "))
     end
     return text
 end

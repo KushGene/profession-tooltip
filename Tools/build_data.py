@@ -17,7 +17,8 @@ Optional web additions (skipped with --offline):
   Trainer scans  required skill for trainer recipes, recorded by the addon when visiting a trainer
                  (SavedVariables in the WoW folder)
   foreverdb.net  required skill for trainer recipes (not in the client); without a match
-                 it stays unknown (0) – nothing is guessed. Its recipe list also tells which
+                 an existing known rank is kept, otherwise 0 (unknown) – nothing is guessed.
+                 Its recipe list also tells which
                  recipes are available in Forever, to filter out Season of Discovery recipes
                  that are in the client but cannot be learned in Forever
 
@@ -297,6 +298,15 @@ def lua_unescape(text):
     return re.sub(r"\\(.)", r"\1", text)
 
 
+def learning_rank(item_rank, trainer_rank, web_rank, previous_rank):
+    """Prefer current positive source values; missing data must not erase a known rank."""
+    for rank, source in ((item_rank, "Rezept-Item"), (trainer_rank, "Lehrer-Scan"),
+                         (web_rank, "foreverdb"), (previous_rank, "Bestand")):
+        if rank is not None and rank > 0:
+            return rank, source
+    return 0, "unbekannt"
+
+
 def as_tuple(recipe):
     return (recipe["skill"], recipe["name"].replace("\\", "\\\\").replace('"', '\\"'), tuple(recipe["reagents"]),
             recipe["created"], tuple(recipe["levels"] or ()))
@@ -371,20 +381,20 @@ def print_header(build_name, hotfix_path, hotfix_count, trainer_count, trainer_f
 
 def print_recipe_table(rows):
     heading("Rezepte pro Beruf")
-    print(dim(f"  {'':18} {'':>7}   {'Lernstufe bekannt aus':^30}   {'':>9}  {'nicht in':>8}"))
-    print(dim(f"  {'Beruf':18} {'Rezepte':>7}   {'Item':>6} {'Lehrer':>7} {'foreverdb':>10}   {'unbekannt':>9}  {'Forever':>8}"))
-    totals = {"count": 0, "Rezept-Item": 0, "Lehrer-Scan": 0, "foreverdb": 0, "unbekannt": 0, "skipped": 0}
+    print(dim(f"  {'':18} {'':>7}   {'Lernstufe bekannt aus':^38}   {'':>9}  {'nicht in':>8}"))
+    print(dim(f"  {'Beruf':18} {'Rezepte':>7}   {'Item':>6} {'Lehrer':>7} {'foreverdb':>10} {'Bestand':>7}   {'unbekannt':>9}  {'Forever':>8}"))
+    totals = {"count": 0, "Rezept-Item": 0, "Lehrer-Scan": 0, "foreverdb": 0, "Bestand": 0, "unbekannt": 0, "skipped": 0}
     for name, count, sources, skipped in rows:
         unknown = sources["unbekannt"]
         print(f"  {DISPLAY_NAMES.get(name, name):18} {count:>7}   {sources['Rezept-Item']:>6} {sources['Lehrer-Scan']:>7} "
-              f"{sources['foreverdb']:>10}   {(yellow if unknown else str)(f'{unknown:>9}')}  {dim(f'{skipped:>8}')}")
+              f"{sources['foreverdb']:>10} {sources['Bestand']:>7}   {(yellow if unknown else str)(f'{unknown:>9}')}  {dim(f'{skipped:>8}')}")
         totals["count"] += count
         totals["skipped"] += skipped
-        for key in ("Rezept-Item", "Lehrer-Scan", "foreverdb", "unbekannt"):
+        for key in ("Rezept-Item", "Lehrer-Scan", "foreverdb", "Bestand", "unbekannt"):
             totals[key] += sources[key]
-    print(dim("  " + "─" * 76))
+    print(dim("  " + "─" * 84))
     print(bold(f"  {'Summe':18} {totals['count']:>7}   {totals['Rezept-Item']:>6} {totals['Lehrer-Scan']:>7} "
-               f"{totals['foreverdb']:>10}   {totals['unbekannt']:>9}  {totals['skipped']:>8}"))
+               f"{totals['foreverdb']:>10} {totals['Bestand']:>7}   {totals['unbekannt']:>9}  {totals['skipped']:>8}"))
 
 
 def print_report(rows, total_changes, item_count, dry_run, incomplete):
@@ -534,7 +544,7 @@ def main():
         fdb, available = foreverdb_recipes(web, web_name)
         old = read_data_file(os.path.join(data_dir, file_name + ".lua"))
         recipes, skipped = {}, 0
-        sources = {"Rezept-Item": 0, "Lehrer-Scan": 0, "foreverdb": 0, "unbekannt": 0}
+        sources = {"Rezept-Item": 0, "Lehrer-Scan": 0, "foreverdb": 0, "Bestand": 0, "unbekannt": 0}
         for ability in tables["SkillLineAbility"].values():
             spell_id = ability["Spell"]
             if ability["SkillLine"] != skill_line or spell_id not in reagents_by_spell:
@@ -553,16 +563,11 @@ def main():
             low, high = ability["TrivialSkillLineRankLow"], ability["TrivialSkillLineRankHigh"]
             levels = (low, (low + high + 1) // 2, high) if 0 < low <= high else None
 
-            # Sources of the learning rank, in this order; without a match 0 = unknown (don't guess)
+            # Current sources take priority; retain known data when none supplies a rank.
             fdb_skill = next((fdb[r] for r in refs if r in fdb), None)
-            if spell_id in item_ranks:
-                skill, source = item_ranks[spell_id], "Rezept-Item"
-            elif spell_id in trainer:
-                skill, source = trainer[spell_id], "Lehrer-Scan"
-            elif fdb_skill is not None:
-                skill, source = fdb_skill, "foreverdb"
-            else:
-                skill, source = 0, "unbekannt"
+            previous_rank = old[spell_id][0] if spell_id in old else None
+            skill, source = learning_rank(item_ranks.get(spell_id), trainer.get(spell_id),
+                                          fdb_skill, previous_rank)
             sources[source] += 1
 
             client_name = names.get(spell_id, {}).get("Name_lang")

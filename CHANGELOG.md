@@ -5,6 +5,17 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.1.5 – 2026-11-14
+
+### New
+- Added "Show requirements for unlearned professions" under Professions, disabled by default. The game's red profession requirements (e.g. disenchanting, Herbalism, Mining and Skinning) are now hidden if you have not learned the profession; requirements for your own professions remain visible. Custom requirement lines added by other addons are not covered
+
+### Improved
+- Corrected required skill levels for 21 Leatherworking recipes based on WoW: Forever build 1.60.1.70938
+
+### Fixed
+- Profession headers now use a font-safe bullet between the profession skill and known recipe count, avoiding a missing-glyph square on Russian clients
+
 ## 1.1.4 – 2026-11-13
 
 ### Fixed

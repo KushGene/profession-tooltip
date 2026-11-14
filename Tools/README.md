@@ -63,7 +63,7 @@ and nothing is written if anything disagrees. Only needed when nodes are added o
 | Recipe item → taught recipe | Game client (`ItemEffect`), also for items whose other data the client doesn't have yet |
 | Required skill | Recipe item in the game client (`ItemSparse`), if the client has its data |
 | Hotfixes | Hotfix cache of the client (`_forever_/Cache/ADB/<locale>/DBCache.bin`), applied on top of the tables |
-| Required skill of trainer recipes | Not in the client. 1) Trainer scans: the addon records the skill whenever you talk to a profession trainer (stored in your SavedVariables, read automatically from the WoW folder). 2) foreverdb.net. Without a match `0` = unknown, nothing is estimated |
+| Required skill of trainer recipes | Not in the client. 1) Trainer scans: the addon records the skill whenever you talk to a profession trainer (stored in your SavedVariables, read automatically from the WoW folder). 2) foreverdb.net. If no source supplies a positive rank, the existing known rank is kept; otherwise `0` = unknown, nothing is estimated |
 | Available in Forever? | Classic recipes (spell ID < 30000), Forever recipes (≥ 1229000) and everything listed in the recipe lists on foreverdb.net. This filters out Season of Discovery recipes that exist in the client but cannot be learned in Forever |
 
 Also downloaded on every run: the table definitions
@@ -92,13 +92,18 @@ foreverdb knows it.
 What the client ships encrypted with a key that is not public yet can't be read at all; such
 recipes are missing until the key is published (the next run picks it up) or the content goes live.
 
+Missing learning ranks never overwrite an existing positive rank with `0`. Such retained ranks
+are reported under **Bestand**; current positive values from recipe items, trainer scans or
+foreverdb still take priority, including corrections to lower ranks. This fallback only applies
+to recipes present in the current build, not to removed recipes.
+
 ## Reading the output
 
 ```
 Alchemy          183 Rezepte  (Lernstufe: 137 Rezept-Item, 2 Lehrer-Scan, 30 foreverdb, 14 unbekannt; 13 nicht in Forever)
 ```
 
-- **Rezept-Item / Lehrer-Scan / foreverdb / unbekannt:** where the required skill comes from (recipe item / trainer scan / foreverdb / unknown)
+- **Rezept-Item / Lehrer-Scan / foreverdb / Bestand / unbekannt:** where the required skill comes from (recipe item / trainer scan / foreverdb / existing data / unknown)
 - **nicht in Forever:** present in the client but filtered out (mostly Season of Discovery)
 
 If "unbekannt" rises noticeably after a patch, foreverdb probably doesn't have the new trainer

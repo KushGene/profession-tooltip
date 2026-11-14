@@ -15,8 +15,11 @@ local clientLocale = "deDE"
 GetLocale = function() return clientLocale end
 issecretvalue = function(value) return value == "SECRET" end
 local ns = { db = { disabledProfessions = {} } }
+local owned = { [182] = true, [186] = true, [393] = true }
+ns.HasProfession = function(id) return owned[id] == true end
+ns.Professions = { { id = 182 }, { id = 186 }, { id = 393 }, { id = 333 } }
 ns.GetProfessionName = function(id)
-    return ({ [182] = "Kräuterkunde", [186] = "Bergbau", [393] = "Kürschnerei" })[id]
+    return ({ [182] = "Kräuterkunde", [186] = "Bergbau", [393] = "Kürschnerei", [333] = "Verzauberkunst" })[id]
 end
 local lines, data, unit, shows
 GameTooltip = {
@@ -134,5 +137,67 @@ for locale, title in pairs({ frFR = "Filon de cuivre", esES = "Filón de cobre",
         setup("Kupfervorkommen", "Bergbau")
         check(not ns.EnhanceGatheringTooltip(GameTooltip), locale .. ": names of other languages must not be loaded")
     end
+end
+-- Unowned native requirements are hidden by default, without touching other red lines.
+ITEM_DISENCHANT_MIN_SKILL = "Entzaubern benötigt %s [%d]"
+ITEM_REQ_SKILL = "Benötigt %s (%d)"
+setup("Grünes Item", "Entzaubern benötigt Verzauberkunst [1]", 0)
+callbacks[0](GameTooltip, data)
+check(lines[2].text == nil and shows == 1, "unowned disenchant requirement must be hidden")
+callbacks[0](GameTooltip, data)
+check(shows == 1, "hidden requirement must not repeatedly resize")
+lines[2].text = "Entzaubern benötigt Verzauberkunst [1]"
+scripts.OnUpdate(GameTooltip, 0.2)
+check(lines[2].text == nil, "redraws must not restore unowned requirements")
+ns.db.showUnownedRequirements = true
+setup("Grünes Item", "Entzaubern benötigt Verzauberkunst [1]", 0)
+callbacks[0](GameTooltip, data)
+check(lines[2].text == "Entzaubern benötigt Verzauberkunst [1]", "opt-in must preserve foreign requirements")
+ns.db.showUnownedRequirements = false
+owned[333] = true
+check(not ns.FilterProfessionRequirements(GameTooltip, data), "own profession requirements must remain visible")
+owned[333] = nil
+for _, text in ipairs({ "Benötigt Stufe 60", "Klassen: Magier", "Verzauberkunst ist nützlich",
+    "Benötigt Verzauberkunst (100) zum Benutzen" }) do
+    setup("Item", text, 0)
+    check(not ns.FilterProfessionRequirements(GameTooltip, data) and lines[2].text == text,
+        "unrelated requirements must not be hidden: " .. text)
+end
+setup("Item", "Benötigt Verzauberkunst (100)", 0)
+check(ns.FilterProfessionRequirements(GameTooltip, data) and lines[2].text == nil,
+    "native skill requirements must be hidden for unowned professions")
+setup("Item", "Entzaubern benötigt Verzauberkunst [1]", 0, nil, nil, { 0, 1, 0 })
+check(not ns.FilterProfessionRequirements(GameTooltip, data), "non-red requirements must remain unchanged")
+setup("Item", "Entzaubern benötigt Verzauberkunst [1]", 0, nil, nil, { "SECRET", "SECRET", "SECRET" })
+check(not ns.FilterProfessionRequirements(GameTooltip, data), "secret colors must remain untouched")
+setup("Item", "SECRET", 0)
+check(not ns.FilterProfessionRequirements(GameTooltip, data), "secret text must remain untouched")
+setup("Item", "Entzaubern benötigt Verzauberkunst [1]", 0)
+data = nil
+check(not ns.FilterProfessionRequirements(GameTooltip), "plain tooltips must remain untouched")
+check(not ns.FilterProfessionRequirements({}), "other tooltips must remain untouched")
+for _, format in ipairs({ "Disenchanting requires %s (%d)", "Распыление: %1$s [%2$d]" }) do
+    ITEM_DISENCHANT_MIN_SKILL = format
+    local text = format:gsub("%%[%d%$]*s", "Verzauberkunst"):gsub("%%[%d%$]*d", "1")
+    setup("Item", text, 0)
+    check(ns.FilterProfessionRequirements(GameTooltip, data), "localized requirement format must match")
+end
+clientLocale = "deDE"
+assert(loadfile("Data/Gathering.lua"))("Test", ns)
+for _, case in ipairs({
+    { 182, "Königsblut", "Kräuterkunde", 4 },
+    { 186, "Eisenvorkommen", "Bergbau", 4 },
+    { 393, "Wolf", "Häutbar", 2, "mouseover" },
+}) do
+    owned[case[1]] = nil
+    setup(case[2], case[3], case[4], nil, case[5])
+    check(ns.EnhanceGatheringTooltip(GameTooltip) and lines[2].text == nil,
+        "unowned gathering requirement must be hidden")
+    ns.db.showUnownedRequirements = true
+    setup(case[2], case[3], case[4], nil, case[5])
+    check(ns.EnhanceGatheringTooltip(GameTooltip) and lines[2].text == case[3] .. " (125)",
+        "opt-in must keep enhanced foreign gathering requirements")
+    ns.db.showUnownedRequirements = false
+    owned[case[1]] = true
 end
 print("Gathering tooltip checks passed: " .. checks)

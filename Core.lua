@@ -89,6 +89,7 @@ local DEFAULTS = {
     -- Tab "Professions"
     onlyOwnProfessions = true,
     showOtherProfessionIcons = true,
+    showUnownedRequirements = false, -- native red requirement lines for professions not learned
     disabledProfessions = {},      -- [skillLineID] = true
     -- Tab "Extras"
     showAltKnown = false,          -- "Known by: <alt>"
