@@ -17,3 +17,5 @@ jobs:
         run: for test in Tools/test_*.lua; do luajit "$test"; done
       - name: Python syntax
         run: python3 -m py_compile Tools/*.py .github/scripts/extract_changelog.py
+      - name: Python tests
+        run: python3 -m unittest discover -s Tools -p 'test_*.py'

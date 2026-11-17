@@ -66,7 +66,8 @@ end
 -- ----------------------------------------------------------------------------
 -- Account-wide (ProfessionTooltipDB): display settings
 -- Per character (ProfessionTooltipCharDB): learned recipes and profession ranks
--- Defaults for a fresh install: only the core feature is enabled, all extras are off.
+-- Defaults for a fresh install: the core feature is enabled, extras are off except the
+-- Darkmoon Faire turn-ins and surnames.
 local DEFAULTS = {
     -- Tab "Tooltip": recipe list
     detailed = true,
@@ -98,6 +99,12 @@ local DEFAULTS = {
     showCraftedReagents = true,    --   ... including reagents (sub-option)
     showStockCount = false,        -- "enough for N" from bags + bank
     showRecipeValue = false,       -- auction value of the product (Auctionator)
+    showRecipeSource = false,      -- unlearned recipes: where to get them (trainer, vendor, drop, quest)
+    showDarkmoon = true,           -- items for Darkmoon Faire quests: amount and reward
+    showSurname = true,            -- WoW Forever: surname after the character name ("Leo Brightvale")
+    -- Window "Missing recipes"
+    recipeFilter = "ALL",          -- "ALL" or one of ns.SOURCE_KINDS
+    recipeLearnableOnly = false,   -- hide recipes that need more skill than the character has
     -- Tab "General"
     minimap = { show = true, angle = 200 },
     legacyCheck = true,            -- point out CookingTooltip/AlchemyTooltip on login
@@ -110,6 +117,7 @@ local CHAR_DEFAULTS = {
     extra = {},       -- [spellID] = { profession, name, { itemID, count, ... } } for recipes without a DB entry
     professions = {}, -- [skillLineID] = { rank = n, max = n }
     scanned = {},     -- [skillLineID] = true once the profession window has been scanned
+    -- recipeProfession = skillLineID: profession last selected in the "Missing recipes" window
 }
 
 local function ApplyDefaults(target, defaults)

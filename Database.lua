@@ -13,6 +13,7 @@ local DIFFICULTY_OPTIMAL, DIFFICULTY_MEDIUM, DIFFICULTY_EASY, DIFFICULTY_TRIVIAL
 local recipes = {}          -- [spellID] = recipe
 local recipeProfession = {} -- [spellID] = skillLineID
 local recipeItems = {}      -- [recipe item] = taught spell
+local itemsBySpell          -- [spellID] = recipe item, built on demand
 local reagentIndex          -- [itemID] = { spellID, ... }, sorted; built on demand
 local createdIndex          -- [itemID] = { spellID, ... } for crafted items
 
@@ -27,6 +28,7 @@ function ns.RegisterRecipeItems(list)
     for itemID, spellID in pairs(list) do
         recipeItems[itemID] = spellID
     end
+    itemsBySpell = nil
 end
 
 -- Returns recipe and profession; also covers scanned recipes without a DB entry
@@ -123,6 +125,23 @@ local function FindSpellByItemName(itemID)
         end
     end
     return false
+end
+
+-- Recipe item that teaches a spell (or nil): from the client data, otherwise from the source data
+function ns.GetRecipeItem(spellID)
+    if not itemsBySpell then
+        itemsBySpell = {}
+        for itemID, taught in pairs(recipeItems) do
+            -- several items can teach the same spell: keep the lowest ID, so the result is stable
+            if not itemsBySpell[taught] or itemID < itemsBySpell[taught] then
+                itemsBySpell[taught] = itemID
+            end
+        end
+    end
+    local itemID = itemsBySpell[spellID]
+    if itemID then return itemID end
+    local source = ns.GetRecipeSource and ns.GetRecipeSource(spellID)
+    return source and source.item or nil
 end
 
 -- Spell taught by a recipe item (or nil)

@@ -1,141 +1,50 @@
 -- UI/MinimapButton.lua
--- Minimap button in LibDBIcon style: snaps to the minimap edge, even while dragging.
--- Also: addon compartment entry and an optional LibDataBroker launcher.
+-- One broker launcher, displayed on the minimap by the bundled LibDBIcon.
 local _, ns = ...
 local L = ns.L
-
--- Corners per minimap shape: true = round corner (same order as LibDBIcon:
--- top-right, top-left, bottom-right, bottom-left)
-local MINIMAP_SHAPES = {
-    ["ROUND"] = { true, true, true, true },
-    ["SQUARE"] = { false, false, false, false },
-    ["CORNER-TOPLEFT"] = { false, false, false, true },
-    ["CORNER-TOPRIGHT"] = { false, false, true, false },
-    ["CORNER-BOTTOMLEFT"] = { false, true, false, false },
-    ["CORNER-BOTTOMRIGHT"] = { true, false, false, false },
-    ["SIDE-LEFT"] = { false, true, false, true },
-    ["SIDE-RIGHT"] = { true, false, true, false },
-    ["SIDE-TOP"] = { false, false, true, true },
-    ["SIDE-BOTTOM"] = { true, true, false, false },
-    ["TRICORNER-TOPLEFT"] = { false, true, true, true },
-    ["TRICORNER-TOPRIGHT"] = { true, false, true, true },
-    ["TRICORNER-BOTTOMLEFT"] = { true, true, false, true },
-    ["TRICORNER-BOTTOMRIGHT"] = { true, true, true, false },
-}
-
-local button
-
-local function UpdatePosition()
-    local rad = math.rad(ns.db.minimap.angle)
-    local x, y = math.cos(rad), math.sin(rad)
-    local quadrant = 1
-    if x < 0 then quadrant = quadrant + 1 end
-    if y > 0 then quadrant = quadrant + 2 end
-
-    local shape = GetMinimapShape and GetMinimapShape() or "ROUND"
-    local quadTable = MINIMAP_SHAPES[shape] or MINIMAP_SHAPES.ROUND
-    local w = Minimap:GetWidth() / 2 + 5
-    local h = Minimap:GetHeight() / 2 + 5
-    if quadTable[quadrant] then
-        x, y = x * w, y * h
-    else
-        local diagW = math.sqrt(2 * w * w) - 10
-        local diagH = math.sqrt(2 * h * h) - 10
-        x = math.max(-w, math.min(x * diagW, w))
-        y = math.max(-h, math.min(y * diagH, h))
-    end
-    button:ClearAllPoints()
-    button:SetPoint("CENTER", Minimap, "CENTER", x, y)
-end
-
-local function OnDragUpdate()
-    local mx, my = Minimap:GetCenter()
-    local px, py = GetCursorPosition()
-    local scale = Minimap:GetEffectiveScale()
-    ns.db.minimap.angle = math.deg(math.atan2(py / scale - my, px / scale - mx)) % 360
-    UpdatePosition()
-end
-
-local function CreateButton()
-    button = CreateFrame("Button", "ProfessionTooltipMinimapButton", Minimap)
-    button:SetFrameStrata("MEDIUM")
-    button:SetFrameLevel(8)
-    button:SetSize(31, 31)
-    button:RegisterForClicks("AnyUp")
-    button:RegisterForDrag("LeftButton")
-    button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
-
-    local border = button:CreateTexture(nil, "OVERLAY")
-    border:SetSize(50, 50)
-    border:SetPoint("TOPLEFT")
-    border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-
-    local background = button:CreateTexture(nil, "BACKGROUND")
-    background:SetSize(24, 24)
-    background:SetPoint("TOPLEFT", 7, -5)
-    background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
-
-    local icon = button:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(17, 17)
-    icon:SetPoint("TOPLEFT", 7, -6)
-    icon:SetTexture(ns.ICON)
-    icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
-
-    button:SetScript("OnClick", ns.ToggleConfigWindow)
-    button:SetScript("OnDragStart", function(self)
-        self.dragging = true
-        self:LockHighlight()
-        self:SetScript("OnUpdate", OnDragUpdate)
-        GameTooltip:Hide()
-    end)
-    button:SetScript("OnDragStop", function(self)
-        self.dragging = false
-        self:UnlockHighlight()
-        self:SetScript("OnUpdate", nil)
-    end)
-    button:SetScript("OnEnter", function(self)
-        if self.dragging then return end
-        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-        GameTooltip:SetText("Profession Tooltip", 1, 1, 1)
-        GameTooltip:AddLine(L["MINIMAP_TOOLTIP"], 0.9, 0.9, 0.9)
-        GameTooltip:Show()
-    end)
-    button:SetScript("OnLeave", GameTooltip_Hide)
-end
+local NAME = "ProfessionTooltip"
+local broker = LibStub("LibDataBroker-1.1")
+local icon = LibStub("LibDBIcon-1.0")
 
 local function Update()
-    if ns.db.minimap.show then
-        if not button then CreateButton() end
-        button:Show()
-        UpdatePosition()
-    elseif button then
-        button:Hide()
+    local db = ns.db.minimap
+    -- Migrate once: LibDBIcon writes minimapPos directly when the icon is dragged.
+    -- Keep show as the public setting used by our configuration window.
+    if db.minimapPos == nil then
+        db.minimapPos = db.angle or 200
+    end
+    db.hide = not db.show
+
+    local launcher = broker:GetDataObjectByName(NAME) or broker:NewDataObject(NAME, {
+        type = "launcher",
+        text = "Profession Tooltip",
+        icon = ns.ICON,
+        OnClick = function(_, button)
+            if button == "RightButton" then
+                ns.ToggleRecipeWindow()
+            else
+                ns.ToggleConfigWindow()
+            end
+        end,
+        OnTooltipShow = function(tooltip)
+            tooltip:AddLine("Profession Tooltip", 1, 1, 1)
+            tooltip:AddLine(L["MINIMAP_TOOLTIP"], 0.9, 0.9, 0.9)
+            tooltip:AddLine(L["MINIMAP_TOOLTIP_RIGHT"], 0.9, 0.9, 0.9)
+        end,
+    })
+
+    if not icon:IsRegistered(NAME) then
+        icon:Register(NAME, launcher, db)
+    else
+        icon:Refresh(NAME, db)
     end
 end
 
--- Entry in the addon compartment (TOC: AddonCompartmentFunc)
+-- Keep the existing TOC entry; do not also register a LibDBIcon compartment entry.
 function ProfessionTooltip_OnAddonCompartmentClick()
     ns.ToggleConfigWindow()
 end
 
--- Launcher for LibDataBroker displays and minimap button collectors. The libraries are not
--- shipped with this addon; the launcher only exists if another addon brings them along.
-local function RegisterBroker()
-    local broker = LibStub and LibStub("LibDataBroker-1.1", true)
-    if not broker or broker:GetDataObjectByName("ProfessionTooltip") then return end
-    broker:NewDataObject("ProfessionTooltip", {
-        type = "launcher",
-        text = "Profession Tooltip",
-        icon = ns.ICON,
-        OnClick = function() ns.ToggleConfigWindow() end,
-        OnTooltipShow = function(tooltip)
-            tooltip:AddLine("Profession Tooltip", 1, 1, 1)
-            tooltip:AddLine(L["MINIMAP_TOOLTIP"], 0.9, 0.9, 0.9)
-        end,
-    })
-end
-
-ns.RegisterEvent("PLAYER_LOGIN", RegisterBroker)
 ns.RegisterEvent("PLAYER_LOGIN", Update)
 ns.On("SETTINGS_CHANGED", function(_, key)
     if key == "minimap" then Update() end

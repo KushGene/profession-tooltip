@@ -2,7 +2,9 @@
 -- Builds the tooltip lines for an item. Up to three sections:
 --   1. Recipe item ("Recipe: ...")  – learned / learnable / skill too low     (extras)
 --   2. Crafted item                  – from which recipe, with reagents      (extras)
+--                                      and where to get the recipe            (extras)
 --   3. Reagent                       – which recipes use it                  (core feature)
+--   4. Darkmoon Faire turn-in        – amount and reward of the quest        (extras)
 -- Finished lines are cached per item and Shift state, since tooltips (e.g. in bags)
 -- are rebuilt very often.
 local _, ns = ...
@@ -24,6 +26,7 @@ local ICON_CROP = ":0:0:64:64:5:59:5:59|t"
 local SECTION_KNOWN = "  |TInterface\\Buttons\\UI-CheckBox-Check:14:14|t"
 local SECTION_UNKNOWN = "  |TInterface\\Buttons\\UI-GroupLoot-Pass-Up:14:14|t"
 local MAX_CRAFTED_RECIPES = 3
+local MAX_SOURCE_VENDORS = 2 -- per unlearned recipe in the "Crafted with" section
 local VOLATILE_CACHE_SECONDS = 3 -- stock and prices change -> cache only briefly
 local UNLIMITED = math.huge
 
@@ -41,6 +44,11 @@ ns.On("DATA_CHANGED", ClearCache)
 local function IsVolatile()
     return ns.db.showStockCount or ns.db.showRecipeValue
 end
+
+-- Darkmoon lines mark quests the character is still too low for
+ns.RegisterEvent("PLAYER_LEVEL_UP", function()
+    if ns.db.showDarkmoon then ClearCache() end
+end)
 
 ns.RegisterEvent("BAG_UPDATE_DELAYED", function()
     if ns.db.showStockCount then ClearCache() end
@@ -93,6 +101,7 @@ local function ItemName(itemID)
     end
     return name or ("#" .. itemID)
 end
+ns.ItemName = ItemName -- for Sources.lua: recipe item names load the same way
 
 local function FormatMoney(copper)
     if GetMoneyString then
@@ -218,6 +227,13 @@ local function FormatRecipeLine(spellID, itemID, difficulty, professionRank)
             text = text .. " " .. Colorize(COLOR_HINT, "– " .. table.concat(alts, ", "))
         end
     end
+
+    if not difficulty and db.showRecipeSource then
+        local summary = ns.GetSourceSummary(spellID)
+        if summary then
+            text = text .. " " .. Colorize(COLOR_HINT, "[" .. summary .. "]")
+        end
+    end
     return text
 end
 
@@ -289,6 +305,14 @@ local function AddCraftedSection(lines, itemID)
                     parts[#parts + 1] = reagents[i + 1] .. "× " .. ItemName(reagents[i])
                 end
                 lines[#lines + 1] = "   " .. Colorize("ffcccccc", table.concat(parts, ", "))
+            end
+
+            -- Where to get the recipe, while it isn't learned
+            local sourceLines = difficulty == nil and ns.db.showRecipeSource and ns.GetSourceLines(spellID, MAX_SOURCE_VENDORS)
+            if sourceLines then
+                for _, line in ipairs(sourceLines) do
+                    lines[#lines + 1] = "   " .. line
+                end
             end
         end
     end
@@ -457,6 +481,30 @@ local function AddIngredientSection(lines, itemID, shift)
 end
 
 -- ----------------------------------------------------------------------------
+-- Section 4: Darkmoon Faire turn-in
+-- ----------------------------------------------------------------------------
+local function AddDarkmoonSection(lines, itemID)
+    local turnIn = ns.DarkmoonTurnIns and ns.DarkmoonTurnIns[itemID]
+    if not turnIn then return end
+    local count, reward, rewardCount, minLevel = turnIn[1], turnIn[2], turnIn[3], turnIn[4]
+    local icon = C_Item.GetItemIconByID and C_Item.GetItemIconByID(ns.DARKMOON_TICKET)
+    -- Tickets as text: no item name to wait for. No arrow character: the game fonts lack it
+    local rewardText
+    if reward == ns.DARKMOON_TICKET then
+        rewardText = rewardCount == 1 and L["DARKMOON_TICKET"] or string.format(L["DARKMOON_TICKETS"], rewardCount)
+    else
+        rewardText = (rewardCount > 1 and (rewardCount .. "× ") or "") .. ItemName(reward)
+    end
+    local text = (icon and ("|T" .. icon .. ":14:14" .. ICON_CROP .. " ") or "")
+        .. Colorize(COLOR_GOLD, L["DARKMOON_FAIRE"] .. ":") .. " " .. string.format(L["DARKMOON_TURNIN"], count, rewardText)
+    if minLevel > 1 then
+        local color = UnitLevel("player") < minLevel and COLOR_TOO_HIGH or COLOR_HINT
+        text = text .. " " .. Colorize(color, "(" .. string.format(L["DARKMOON_MIN_LEVEL"], minLevel) .. ")")
+    end
+    lines[#lines + 1] = text
+end
+
+-- ----------------------------------------------------------------------------
 -- Assembly
 -- ----------------------------------------------------------------------------
 local function BuildLines(itemID, shift)
@@ -479,6 +527,9 @@ local function BuildLines(itemID, shift)
         Section(AddCraftedSection, itemID)
     end
     Section(AddIngredientSection, itemID, shift)
+    if db.showDarkmoon then
+        Section(AddDarkmoonSection, itemID)
+    end
     return #lines > 0 and lines or false
 end
 

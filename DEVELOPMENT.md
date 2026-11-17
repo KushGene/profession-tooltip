@@ -12,6 +12,10 @@ Notes for working on Profession Tooltip. For what the addon does, see the [READM
 | `Database.lua` | Recipe registry, indexes ingredient → recipes and item → recipes (built once, on demand) |
 | `Data/<Profession>.lua` | **Generated** recipe data, one file per profession |
 | `Data/RecipeItems.lua` | **Generated**: recipe item → taught spell |
+| `Data/RecipeSources.lua` | **Generated** by `Tools/build_sources.py`: where each recipe is learned (trainer, vendor, drop, quest) and the vendors' places, packed in strings |
+| `Data/Names/<locale>.lua` | **Generated** by `Tools/build_sources.py`: names of vendors, drop sources and quests by ID; `enUS` is always loaded, the others only for their client language |
+| `Data/Darkmoon.lua` | **Maintained by hand** (26 items, no generator): items Darkmoon Faire quests take, amount, reward and level, from CMaNGOS classic-db `quest_template` (the client has no quest requirements); source quest IDs are in the file header |
+| `Sources.lua` | Unpacks recipe sources on demand and turns them into text (short tag, detailed lines), filters vendors by faction, sets the map pin; zone, faction and currency names come from the client |
 | `Characters.lua` | Account-wide snapshot per character (for "Known by" / "Learnable by") |
 | `Scanner.lua` | Reads learned recipes and their difficulty from the open profession window |
 | `Tooltip.lua` | Builds the tooltip sections (recipe item, crafted with, ingredient); lines are cached per item and Shift state |
@@ -19,7 +23,9 @@ Notes for working on Profession Tooltip. For what the addon does, see the [READM
 | `Legacy.lua` | Transition from Cooking Tooltip / Alchemy Tooltip (take over settings, disable old addons) |
 | `UI/Widgets.lua` | Reusable UI building blocks (`Column:Header/Check/Choice`) |
 | `UI/ConfigWindow.lua` | Settings window with tabs and live preview |
-| `UI/MinimapButton.lua`, `UI/SettingsPanel.lua` | Minimap button, entry under Options → AddOns |
+| `UI/RecipeWindow.lua` | Window "Missing recipes": unlearned recipes of a profession with required skill and source, filters, own scrolling list |
+| `UI/MinimapButton.lua`, `UI/SettingsPanel.lua` | Minimap button (left-click settings, right-click missing recipes), entry under Options → AddOns |
+| `Libs/` | Bundled LibStub, CallbackHandler, LibDataBroker and LibDBIcon (loaded before addon code); see `Libs/README.md` for sources |
 | `Tools/` | Data generator for `Data/*.lua` (not loaded by WoW, not part of the release) |
 
 Data flow: data files register recipes → `Database` builds the ingredient index → `Scanner`
@@ -56,6 +62,10 @@ luajit Tools/test_review.lua
 luajit Tools/test_unlearned_difficulty.lua
 luajit Tools/test_locales.lua
 luajit Tools/test_professions.lua
+luajit Tools/test_minimap.lua
+luajit Tools/test_sources.lua
+luajit Tools/test_extras.lua
+python3 -m unittest discover -s Tools -p 'test_*.py'
 ```
 
 The same tests run on every push (`.github/workflows/tests.yml`) and before a release is built.
@@ -79,6 +89,12 @@ WOW_DIR="/path/to/World of Warcraft" python3 Tools/build_data.py
 The recipe data is extracted from the WoW: Forever game files with `Tools/build_data.py` and
 shipped with the addon. After a game patch: run the script, bump the version, publish an
 update. See [Tools/README.md](Tools/README.md) for details.
+
+Where recipes come from is not in the game files. `Tools/build_sources.py` takes it from
+ForeverDB.net's published addon data and writes `Data/RecipeSources.lua`; run it after
+`build_data.py`, since it only covers recipes that are in `Data/*.lua`. The data is GPL-3.0 with
+an attribution term: the "Data: ForeverDB.net" line in the file, the credit in the README and the
+credit line in the "Missing recipes" window must stay.
 
 ## Release
 

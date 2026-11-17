@@ -442,11 +442,12 @@ def lua_string(text):
 GENERATED_LINE = "-- Generated automatically by Tools/build_data.py from the client"
 
 
-def write_if_changed(path, lines):
+def write_if_changed(path, lines, volatile=GENERATED_LINE):
     """Writes the file unless only the client build in the header would change – a new build
-    without data changes must not touch every data file. Returns True if written."""
+    without data changes must not touch every data file. Returns True if written.
+    volatile: start of the header line that names the build (ignored in the comparison)."""
     def body(text_lines):
-        return [line for line in text_lines if not line.startswith(GENERATED_LINE)]
+        return [line for line in text_lines if not line.startswith(volatile)]
     if os.path.exists(path):
         with open(path, encoding="utf8") as f:
             if body(f.read().splitlines()) == body(lines):

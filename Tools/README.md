@@ -24,6 +24,37 @@ the installed WoW: Forever client. Not loaded by WoW and excluded from releases 
 Requires only Python 3, no extra packages. Every run fetches the web data again, so a run takes
 about a minute.
 
+## Recipe sources
+
+`Data/RecipeSources.lua` (where a recipe is learned: trainer and cost, vendors and their places,
+drops, quests, reputation) is generated separately, after `build_data.py`:
+
+```sh
+python3 Tools/build_sources.py            # add --dry-run to only see what would change
+```
+
+The game client doesn't know where recipes come from, so the source is ForeverDB.net's addon
+data (`Data/Recipes.lua` and `Data/NPCs.lua` from https://foreverdb.net/downloads/addon-manifest.json).
+ForeverDB publishes these files for reuse under GPL-3.0 with an attribution term – keep the
+"Data: ForeverDB.net" line in the generated file and the credit in the README and in the game.
+Parts are Classic data (CMaNGOS classic-db) until players confirm them in Forever.
+
+Vendors, drop sources and quests are stored by ID and shown in the client's language. ForeverDB
+names drops and quests in English only, so the script matches them to IDs (ForeverDB's quest
+data, else Wowhead's search), keeps a match only if Wowhead's English name for the ID is the same,
+and fetches the names of all nine languages from Wowhead's WoW: Forever tooltips into
+`Data/Names/<locale>.lua`. What can't be matched stays English ("Ohne ID" in the report). The first
+run takes several minutes; afterwards the names come from `Tools/.cache` (delete `wh_name_*`
+there to fetch them again). Vendors without a known faction that stand in a capital get that
+capital's faction, so the addon never lists the other faction's vendors.
+
+The files are Lua source; the script parses them and never executes them. Only recipes that are
+in `Data/*.lua` get an entry, and the recipe item is taken from `Data/RecipeItems.lua` where the
+client knows it. Nothing is written if a download fails, a checksum doesn't match the manifest or
+ForeverDB knows fewer than 90 % of the addon's recipes (the format probably changed). The report
+lists per profession how many recipes have a trainer, vendor, drop or quest source, and for how
+many only the recipe item ("nur Item") or nothing ("unbekannt") is known.
+
 ## Gathering nodes
 
 `Data/Gathering.lua` (herb and ore nodes, their required skill, object IDs and names in every
@@ -51,6 +82,8 @@ and nothing is written if anything disagrees. Only needed when nodes are added o
 | File | Purpose |
 |---|---|
 | `build_data.py` | Main script: reads the tables and writes `Data/*.lua` and `Data/RecipeItems.lua` |
+| `build_sources.py` | Writes `Data/RecipeSources.lua` from ForeverDB.net's addon data |
+| `build_gathering.py` | Writes `Data/Gathering.lua` |
 | `casc.py` | Reads files from the local game storage (`World of Warcraft/Data`), including decryption |
 | `db2.py` | Reads the game tables (DB2/WDC5) |
 | `.cache/` | Last downloaded web data, only used when a website is unreachable (or with `--offline`); can be deleted at any time and is recreated |

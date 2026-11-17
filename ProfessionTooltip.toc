@@ -20,6 +20,11 @@
 ## SavedVariables: ProfessionTooltipDB
 ## SavedVariablesPerCharacter: ProfessionTooltipCharDB
 
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
+
 Core.lua
 Locales\enUS.lua
 Locales\deDE.lua
@@ -32,6 +37,7 @@ Locales\zhCN.lua
 Locales\zhTW.lua
 Professions.lua
 Database.lua
+Sources.lua
 
 Data\Alchemy.lua
 Data\Blacksmithing.lua
@@ -46,7 +52,18 @@ Data\Cooking.lua
 Data\FirstAid.lua
 Data\Fishing.lua
 Data\RecipeItems.lua
+Data\RecipeSources.lua
+Data\Names\enUS.lua
+Data\Names\deDE.lua
+Data\Names\frFR.lua
+Data\Names\esES.lua
+Data\Names\ruRU.lua
+Data\Names\ptBR.lua
+Data\Names\koKR.lua
+Data\Names\zhCN.lua
+Data\Names\zhTW.lua
 Data\Gathering.lua
+Data\Darkmoon.lua
 
 Characters.lua
 Scanner.lua
@@ -56,5 +73,6 @@ GatheringTooltip.lua
 Legacy.lua
 UI\Widgets.lua
 UI\ConfigWindow.lua
+UI\RecipeWindow.lua
 UI\MinimapButton.lua
 UI\SettingsPanel.lua

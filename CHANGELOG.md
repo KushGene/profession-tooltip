@@ -3,7 +3,22 @@
 Changes for players, newest version first. On release, only the section of the released
 version is posted as "What's new" on CurseForge, Wago and GitHub.
 
-## Unreleased
+## 1.2.0 – 2026-11-17
+
+### New
+- **Missing recipes:** a new window lists the recipes of a profession you have not learned yet, sorted by required skill, and shows where to get each one: trainer and cost, vendors with zone, coordinates and price, required reputation or Merchant's Favor, quests and drop sources. Each recipe shows its icon, and hovering it shows the item's own tooltip next to the details (the recipe item, otherwise the crafted item; enchants show the spell). Filter by source or show only recipes your skill already allows. Click a recipe to open the world map on its vendor and set a map pin (and a TomTom waypoint if TomTom is installed). Only vendors of your own faction are listed. Open it with `/pt recipes`, a right-click on the minimap button or the button in the settings window. You can browse professions you have not learned, too
+- Added "Show sources in item tooltips" (in the Missing recipes window, disabled by default): unknown recipes in item tooltips are tagged with their source, e.g. [Vendor], and crafted items list where to get their recipe if "Info on crafted items" is enabled
+- Added "Show Darkmoon Faire turn-ins" under Extras, enabled by default: items that Darkmoon Faire quests take, such as Small Furry Paw, Torn Bear Pelt or Copper Modulator, show the amount, the reward and the required level, e.g. "5× for 4 tickets (level 10+)". The level is shown in red while your character is too low. The amounts are Classic data until players confirm them in Forever
+- Added "Show surnames" under Extras, enabled by default: the character list and "Known by"/"Learnable by" show the WoW: Forever surname after the first name. Each character needs to log in once
+- Vendors, drop sources and quests are shown in your client's language (all nine supported languages)
+
+### Improved
+- The minimap button now uses bundled LibDBIcon and LibDataBroker libraries for better compatibility with minimap button collectors, without requiring another addon. Existing position and visibility settings are preserved
+- The character list under Extras shows four characters per page to make room for the new options
+- Corrected required skill levels for 17 Leatherworking recipes based on WoW: Forever build 1.60.1.70938, e.g. Green Leather Belt now requires 135 instead of 155, and Thick Armor Kit 175 instead of 195
+
+### Fixed
+- Two of your characters with the same first name on one realm no longer overwrite each other in the character list and in "Known by". Each character is listed under its full name after its next login
 
 ## 1.1.5 – 2026-11-14
 

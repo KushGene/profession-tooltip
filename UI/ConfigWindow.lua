@@ -15,7 +15,7 @@ local HEADER_STYLES = { "full", "icon", "name" }
 local HEADER_STYLE_LABELS = { full = "STYLE_FULL", icon = "STYLE_ICON", name = "STYLE_NAME" }
 local UNKNOWN_FILTERS = { "all", "learnable", "noGray" }
 local UNKNOWN_FILTER_LABELS = { all = "FILTER_ALL", learnable = "FILTER_LEARNABLE", noGray = "FILTER_NO_GRAY" }
-local MAX_CHARACTER_ROWS = 6
+local MAX_CHARACTER_ROWS = 4 -- more pages instead of more rows: the Extras tab is full
 
 local window
 local columns = {}
@@ -206,8 +206,10 @@ local function BuildExtrasTab(page)
     col:Check(Option("showCraftedReagents", "OPT_CRAFTED_REAGENTS", "OPT_CRAFTED_REAGENTS_DESC", IsCraftedShown, true))
     col:Check(Option("showStockCount", "OPT_STOCK", "OPT_STOCK_DESC", IsDetailed))
     col:Check(Option("showRecipeValue", "OPT_VALUE", "OPT_VALUE_DESC", ns.IsAuctionatorAvailable))
+    col:Check(Option("showDarkmoon", "OPT_DARKMOON", "OPT_DARKMOON_DESC"))
     col:Space(6)
     col:Header(L["SECTION_CHARACTERS"])
+    col:Check(Option("showSurname", "OPT_SURNAME", "OPT_SURNAME_DESC"))
 
     local rows = {}
     for i = 1, MAX_CHARACTER_ROWS do
@@ -489,6 +491,12 @@ local function CreateHeader(frame)
     local close = CreateFrame("Button", nil, header, "UIPanelCloseButton")
     close:SetPoint("RIGHT", -6, 0)
     close:SetScript("OnClick", function() frame:Hide() end)
+
+    local recipes = CreateFrame("Button", nil, header, "UIPanelButtonTemplate")
+    recipes:SetSize(190, 22)
+    recipes:SetPoint("RIGHT", close, "LEFT", -8, 0)
+    recipes:SetText(L["RECIPES_TITLE"])
+    recipes:SetScript("OnClick", function() ns.ToggleRecipeWindow() end)
 end
 
 local function CreateTabs(frame)
@@ -618,4 +626,11 @@ StaticPopupDialogs["PROFESSIONTOOLTIP_RESET_SCAN"] = {
 
 SLASH_PROFESSIONTOOLTIP1 = "/pt"
 SLASH_PROFESSIONTOOLTIP2 = "/proftip"
-SlashCmdList["PROFESSIONTOOLTIP"] = ns.ToggleConfigWindow
+SlashCmdList["PROFESSIONTOOLTIP"] = function(message)
+    local command = (message or ""):lower():match("^%s*(%S*)")
+    if command == "recipes" or command == "missing" then
+        ns.ToggleRecipeWindow()
+    else
+        ns.ToggleConfigWindow()
+    end
+end
