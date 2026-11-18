@@ -3,6 +3,11 @@
 Changes for players, newest version first. On release, only the section of the released
 version is posted as "What's new" on CurseForge, Wago and GitHub.
 
+## Unreleased
+
+### Improved
+- Corrected required skill levels for two recipes based on WoW: Forever build 1.60.1.70959: Orcish War Leggings now requires 205 and Icy Scale Bracers 320; both were shown without a required skill before
+
 ## 1.2.0 – 2026-11-17
 
 ### New

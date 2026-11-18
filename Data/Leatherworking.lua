@@ -1,5 +1,5 @@
 -- Data/Leatherworking.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70938patch1.60.1_Retail).
+-- Generated automatically by Tools/build_data.py from the client (WOW-70959patch1.60.1_Retail).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
@@ -20,7 +20,6 @@ ns.RegisterRecipes(165, {
     [28220] = { 0, "Polar Gloves", { 22682, 5, 12810, 12, 7080, 2, 15407, 3, 14227, 4 }, 22662, 320, 330, 340 },
     [28222] = { 0, "Icy Scale Breastplate", { 22682, 7, 15408, 24, 7080, 2, 15407, 4, 14227, 4 }, 22664, 320, 330, 340 },
     [28223] = { 0, "Icy Scale Gauntlets", { 22682, 5, 15408, 16, 7080, 2, 15407, 3, 14227, 4 }, 22666, 320, 330, 340 },
-    [28224] = { 0, "Icy Scale Bracers", { 22682, 4, 15408, 16, 7080, 2, 15407, 2, 14227, 4 }, 22665, 320, 330, 340 },
     [28472] = { 0, "Bramblewood Helm", { 12810, 12, 19726, 2, 12803, 2, 15407, 2 }, 22759, 320, 330, 340 },
     [28473] = { 0, "Bramblewood Boots", { 12810, 6, 18512, 2, 12803, 2, 15407, 2 }, 22760, 320, 330, 340 },
     [28474] = { 0, "Bramblewood Belt", { 12810, 4, 12803, 2, 15407, 1 }, 22761, 320, 330, 340 },
@@ -520,4 +519,5 @@ ns.RegisterRecipes(165, {
     [1306531] = { 300, "Mourning Handguards", { 274030, 2, 248824, 1, 248825, 12 }, 279257, 310, 318, 325 },
     [1306532] = { 300, "Wild Leather Armor Kit", { 248825, 22, 14341, 3 }, 279258, 310, 318, 325 },
     [28221] = { 320, "Polar Bracers", { 22682, 4, 12810, 12, 7080, 2, 15407, 2, 14227, 4 }, 22663, 320, 330, 340 },
+    [28224] = { 320, "Icy Scale Bracers", { 22682, 4, 15408, 16, 7080, 2, 15407, 2, 14227, 4 }, 22665, 320, 330, 340 },
 })

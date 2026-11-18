@@ -1,5 +1,5 @@
 -- Data/Blacksmithing.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70938patch1.60.1_Retail).
+-- Generated automatically by Tools/build_data.py from the client (WOW-70959patch1.60.1_Retail).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
@@ -10,7 +10,6 @@ ns.RegisterRecipes(164, {
     [8366] = { 0, "Ironforge Chain", { 2840, 12, 774, 2, 3470, 2 }, 6730, 80, 100, 120 },
     [8368] = { 0, "Ironforge Gauntlets", { 2841, 8, 1210, 3, 3478, 4 }, 6733, 140, 155, 170 },
     [9942] = { 0, "Mithril Plate Gloves", { 3860, 8, 4234, 6, 4338, 4 }, 7925, 215, 225, 235 },
-    [9957] = { 0, "Orcish War Leggings", { 3860, 12, 7067, 1 }, 7929, 225, 235, 245 },
     [9972] = { 0, "Ornate Mithril Breastplate", { 3860, 16, 6037, 6, 7077, 1, 7966, 1 }, 7935, 235, 245, 255 },
     [9979] = { 0, "Ornate Mithril Boots", { 3860, 14, 6037, 2, 4304, 4, 7966, 1, 7909, 1 }, 7936, 240, 250, 260 },
     [9980] = { 0, "Ornate Mithril Helm", { 3860, 16, 6037, 2, 7971, 1, 7966, 1 }, 7937, 240, 250, 260 },
@@ -247,6 +246,7 @@ ns.RegisterRecipes(164, {
     [1252298] = { 200, "Prefect's Boots", { 3859, 4, 3486, 4, 13926, 4 }, 250549, 205, 205, 205 },
     [1252299] = { 200, "Justicar's Boots", { 3859, 4, 3486, 4, 7079, 4 }, 250550, 205, 205, 205 },
     [9931] = { 205, "Mithril Plate Pants", { 3860, 12 }, 7920, 205, 215, 225 },
+    [9957] = { 205, "Orcish War Leggings", { 3860, 12, 7067, 1 }, 7929, 225, 235, 245 },
     [439120] = { 205, "Golden Scale Gauntlets", { 3859, 10, 3577, 4, 3486, 4, 3864, 1 }, 217273, 225, 235, 245 },
     [9935] = { 210, "Steel Plate Helm", { 3859, 14, 7966, 1 }, 7922, 210, 220, 230 },
     [9964] = { 210, "Mithril Spurs", { 3860, 4, 7966, 3 }, 7969, 230, 240, 250 },
