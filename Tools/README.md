@@ -77,6 +77,10 @@ and nothing is written if anything disagrees. Only needed when nodes are added o
 | `--wow-dir PATH` | WoW installation folder (alternatively the environment variable `WOW_DIR`) |
 | `--product NAME` | Client product from `World of Warcraft/.build.info` (default: `wowf` = WoW: Forever). Change `PRODUCT` in `build_data.py` if Blizzard renames the product |
 
+The installation folder of that product is looked up via `_*_/.flavor.info` (`wowf` → `_forever_`).
+The hotfix cache and the trainer scans are read only from that folder, so a second installed
+client (e.g. `_retail_`) never contributes data.
+
 ## Files
 
 | File | Purpose |

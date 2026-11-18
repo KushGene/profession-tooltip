@@ -9,7 +9,7 @@ The main source is the client's DB2 tables (read via casc.py/db2.py):
                     localized name – the English names of existing recipes are kept instead)
   ItemEffect + ItemXItemEffect   recipe item -> taught recipe
   ItemSparse        required skill according to the recipe item
-Plus the client's hotfix cache (Cache/ADB/<locale>/DBCache.bin): the server sends changes and the
+Plus the client's hotfix cache (_forever_/Cache/ADB/<locale>/DBCache.bin): the server sends changes and the
 data of items the client doesn't ship yet (e.g. recipe items of new content) only after login
 or when you come across them – so the cache, and with it the data, grows with playing.
 
@@ -157,12 +157,25 @@ def locale_name(flags):
 # ----------------------------------------------------------------------------
 # Client data
 # ----------------------------------------------------------------------------
-def load_client_tables(wow_dir, product, web):
+def installation_dir(wow_dir, product):
+    """Flavor directory of the product, e.g. "_forever_" for wowf, or None if not installed.
+
+    Every flavor has a .flavor.info naming its product; only data inside that directory belongs
+    to the client the addon runs on (other flavors' caches and SavedVariables must not be mixed in)."""
+    for info in sorted(glob.glob(os.path.join(wow_dir, "_*_", ".flavor.info"))):
+        with open(info, encoding="utf8", errors="replace") as f:
+            lines = [line.strip() for line in f if line.strip()]
+        if lines and lines[-1] == product:
+            return os.path.dirname(info)
+    return None
+
+
+def load_client_tables(wow_dir, install_dir, product, web):
     keys_path = os.path.join(web.cache_dir, "tactkeys.txt")
     if web.get(TACT_KEYS_URL, "tactkeys.txt") is None and not os.path.exists(keys_path):
         sys.exit("TACT-Keys fehlen (einmal ohne --offline ausführen)")
     storage = casc.Casc(wow_dir, product, casc.load_tact_keys(keys_path))
-    hotfixes, hotfix_path = load_hotfixes(wow_dir, storage.build_name)
+    hotfixes, hotfix_path = load_hotfixes(install_dir, storage.build_name)
 
     manifest_text = web.get(MANIFEST_URL, "manifest.json")
     if manifest_text is None:
@@ -181,18 +194,23 @@ def load_client_tables(wow_dir, product, web):
             sum(len(records) for records in hotfixes.values()), non_english)
 
 
-def load_hotfixes(wow_dir, build_name):
-    """Hotfix cache of the installation that matches the client build; searched in every
-    installed locale (_*_/Cache/ADB/<locale>/DBCache.bin), enUS directories first."""
+def load_hotfixes(install_dir, build_name):
+    """Hotfix cache of the client's own flavor directory that matches the client build, e.g.
+    _forever_/Cache/ADB/<locale>/DBCache.bin; enUS directories first."""
     match = re.search(r"(\d+)", build_name)
     build = int(match[1]) if match else None
-    paths = glob.glob(os.path.join(wow_dir, "_*_", "Cache", "ADB", "*", "DBCache.bin"))
+    paths = glob.glob(os.path.join(install_dir, "Cache", "ADB", "*", "DBCache.bin"))
     paths.sort(key=lambda p: (os.sep + "enUS" + os.sep not in p, p))
     for path in paths:
         with open(path, "rb") as f:
-            hotfixes = db2.read_hotfixes(f.read(), build)
+            data = f.read()
+        hotfixes = db2.read_hotfixes(data, build)
         if hotfixes:
             return hotfixes, path
+        header = db2.hotfix_header(data)
+        if header and header[1] != build:
+            print(yellow(f"  Hinweis: {path} gehört zu Build {header[1]}, der Client ist Build {build}; "
+                         "das Spiel einmal starten und danach erneut ausführen"), flush=True)
     return {}, None
 
 
@@ -255,12 +273,12 @@ def foreverdb_recipes(web, profession):
 # ----------------------------------------------------------------------------
 # Trainer scans from the game (SavedVariables)
 # ----------------------------------------------------------------------------
-def trainer_scans(wow_dir):
+def trainer_scans(install_dir):
     """Trainer ranks recorded by the addon across all accounts: {spellID: rank}.
 
-    The addon stores them in WTF/Account/<Account>/SavedVariables/ProfessionTooltip.lua.
+    The addon stores them in <flavor>/WTF/Account/<Account>/SavedVariables/ProfessionTooltip.lua.
     If a recipe has several values, the lowest one wins."""
-    pattern = os.path.join(wow_dir, "_*_", "WTF", "Account", "*", "SavedVariables", "ProfessionTooltip.lua")
+    pattern = os.path.join(install_dir, "WTF", "Account", "*", "SavedVariables", "ProfessionTooltip.lua")
     skills, files = {}, 0
     for path in glob.glob(pattern):
         with open(path, encoding="utf8", errors="replace") as f:
@@ -356,14 +374,17 @@ def heading(text):
 
 
 def print_header(build_name, hotfix_path, hotfix_count, trainer_count, trainer_files, web, dry_run,
-                 non_english=None, localized_names=0):
+                 non_english=None, localized_names=0, installation=None):
     title = "Profession Tooltip – Datenprüfung" + (" (Testlauf, es wird nichts geschrieben)" if dry_run else "")
     print(bold(title))
     print(dim("═" * 78))
     print(f"  {'Datum':14} {time.strftime('%d.%m.%Y %H:%M')}")
     print(f"  {'Spielclient':14} {build_name}")
+    if installation:
+        print(f"  {'Installation':14} {os.path.basename(installation)}")
     print(f"  {'Hotfixes':14} " + (f"{hotfix_count} Einträge aus {hotfix_path}" if hotfix_path
-                                    else yellow("keine passende DBCache.bin gefunden")))
+                                    else yellow(f"keine passende DBCache.bin in "
+                                                f"{os.path.basename(installation or '')}/Cache/ADB gefunden")))
     if non_english:
         locale = next(iter(non_english.values()))
         if "SpellName" in non_english:
@@ -524,10 +545,14 @@ def main():
                  "z. B. WOW_DIR=\"$HOME/Games/World of Warcraft\"")
 
     print(dim("Lese Spieldaten und Web-Listen …"), flush=True)
+    install_dir = installation_dir(args.wow_dir, args.product)
+    if install_dir is None:
+        sys.exit(f"Kein Installationsordner für Produkt {args.product} in {args.wow_dir} gefunden "
+                 f"(erwartet wird z. B. _forever_/.flavor.info)")
     web = WebCache(args.cache, args.offline)
     build_name, tables, hotfix_path, hotfix_count, non_english = load_client_tables(
-        args.wow_dir, args.product, web)
-    trainer, trainer_files = trainer_scans(args.wow_dir)
+        args.wow_dir, install_dir, args.product, web)
+    trainer, trainer_files = trainer_scans(install_dir)
 
     teaching_items = recipe_items(tables)
     item_ranks = {}
@@ -605,7 +630,7 @@ def main():
         write_recipe_items(data_dir, build_name, items)
 
     print_header(build_name, hotfix_path, hotfix_count, len(trainer), trainer_files, web,
-                 args.dry_run, non_english, localized_names)
+                 args.dry_run, non_english, localized_names, install_dir)
     print_recipe_table(recipe_rows)
     print_report(report, total_changes, len(items), args.dry_run, incomplete)
     if incomplete:

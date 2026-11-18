@@ -1,7 +1,9 @@
 """Offline regression tests: python3 -m unittest discover -s Tools -p 'test_*.py'."""
 import contextlib
 import io
+import os
 from pathlib import Path
+import struct
 import tempfile
 import unittest
 
@@ -53,6 +55,54 @@ class LearningRankTests(unittest.TestCase):
             build_data.print_recipe_table([("Tailoring", 1, sources, 0)])
         self.assertIn("Bestand", output.getvalue())
         self.assertIn("Summe", output.getvalue())
+
+
+class InstallationDirTests(unittest.TestCase):
+    def test_flavor_dir_of_product_is_used(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for flavor, product in (("_retail_", "wow"), ("_forever_", "wowf"),
+                                    ("_classic_era_", "wow_classic_era")):
+                os.makedirs(Path(directory) / flavor)
+                (Path(directory) / flavor / ".flavor.info").write_text(
+                    f"Product Flavor!STRING:0\n{product}\n", encoding="utf8")
+            self.assertEqual(build_data.installation_dir(directory, "wowf"),
+                             str(Path(directory) / "_forever_"))
+            self.assertEqual(build_data.installation_dir(directory, "wow"),
+                             str(Path(directory) / "_retail_"))
+
+    def test_missing_product_returns_none(self):
+        with tempfile.TemporaryDirectory() as directory:
+            os.makedirs(Path(directory) / "_retail_")
+            (Path(directory) / "_retail_" / ".flavor.info").write_text(
+                "Product Flavor!STRING:0\nwow\n", encoding="utf8")
+            self.assertIsNone(build_data.installation_dir(directory, "wowf"))
+            self.assertIsNone(build_data.installation_dir(directory, "wowf-nope"))
+
+
+class HotfixCacheTests(unittest.TestCase):
+    @staticmethod
+    def _cache(directory, build, locale="deDE"):
+        path = Path(directory) / "Cache" / "ADB" / locale / "DBCache.bin"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"XFTH" + struct.pack("<II", 9, build) + b"\0" * 32)
+        return path
+
+    def test_cache_of_another_build_is_ignored_and_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self._cache(directory, 70938)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                hotfixes, path = build_data.load_hotfixes(directory, "WOW-70959patch1.60.1_Retail")
+            self.assertEqual((hotfixes, path), ({}, None))
+            self.assertIn("70938", output.getvalue())
+
+    def test_only_the_given_flavor_directory_is_searched(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self._cache(Path(directory) / "_retail_", 70959)
+            install = Path(directory) / "_forever_"
+            install.mkdir()
+            hotfixes, path = build_data.load_hotfixes(str(install), "WOW-70959patch1.60.1_Retail")
+            self.assertEqual((hotfixes, path), ({}, None))
 
 
 if __name__ == "__main__":

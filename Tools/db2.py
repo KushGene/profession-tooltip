@@ -232,15 +232,26 @@ def read_table(data, dbd_text, hotfixes=None):
 # ----------------------------------------------------------------------------
 # Hotfixes (DBCache.bin)
 # ----------------------------------------------------------------------------
+HOTFIX_FORMAT = 9
+
+
+def hotfix_header(data):
+    """(format version, client build) of a DBCache.bin, or None if the file isn't one."""
+    if data[:4] != b"XFTH" or len(data) < 12:
+        return None
+    return struct.unpack("<II", data[4:12])
+
+
 def read_hotfixes(data, build=None):
     """DBCache.bin -> {table hash: {record ID: record bytes, or None if removed}}.
     The server sends hotfixes – and data of items the client doesn't have yet – after login
     or when you come across them; the file therefore grows with playing. Returns {} if the
     file doesn't match the format or (with build) the client build."""
-    if data[:4] != b"XFTH" or len(data) < 44:
+    header = hotfix_header(data)
+    if header is None or len(data) < 44:
         return {}
-    version, file_build = struct.unpack("<II", data[4:12])
-    if version != 9 or (build is not None and file_build != build):
+    version, file_build = header
+    if version != HOTFIX_FORMAT or (build is not None and file_build != build):
         return {}
     latest = {}  # (table hash, record ID) -> (push ID, status, bytes)
     pos = 44
