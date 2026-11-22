@@ -1,5 +1,5 @@
 -- Data/RecipeItems.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70938patch1.60.1_Retail).
+-- Generated automatically by Tools/build_data.py from the client (WOW-71037patch1.60.1_Retail).
 local _, ns = ...
 
 -- [recipe item] = taught spell
@@ -1658,6 +1658,7 @@ ns.RegisterRecipeItems({
     [274401] = 1220624,
     [274415] = 1294014,
     [274424] = 1294054,
+    [274491] = 1294289,
     [274972] = 1295805,
     [274977] = 1295834,
     [275580] = 1297120,

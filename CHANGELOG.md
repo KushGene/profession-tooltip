@@ -5,6 +5,11 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.2.2 – 2026-11-22
+
+### Improved
+- Updated recipe data for WoW: Forever build 1.60.1.71037, adding one new Leatherworking recipe
+
 ## 1.2.1 – 2026-11-18
 
 ### Improved
