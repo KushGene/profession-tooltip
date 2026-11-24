@@ -52,6 +52,8 @@ import casc  # noqa: E402
 import db2  # noqa: E402
 
 PRODUCT = "wowf"  # WoW: Forever (product name in World of Warcraft/.build.info)
+# Only the Forever client is ever read; any other flavor (_retail_, _classic_, …) is refused.
+FLAVOR_DIR = "_forever_"
 
 # Skill line -> (file name, foreverdb name)
 PROFESSIONS = {
@@ -533,7 +535,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--wow-dir", default=default_wow_dir,
                         help="WoW-Installationsverzeichnis (mit .build.info); alternativ Umgebungsvariable WOW_DIR")
-    parser.add_argument("--product", default=PRODUCT)
     parser.add_argument("--cache", default=os.path.join(tools_dir, ".cache"))
     parser.add_argument("--offline", action="store_true", help="keine Web-Zugriffe (nur Client + Cache)")
     parser.add_argument("--dry-run", action="store_true", help="nur prüfen und berichten, keine Dateien schreiben")
@@ -545,13 +546,13 @@ def main():
                  "z. B. WOW_DIR=\"$HOME/Games/World of Warcraft\"")
 
     print(dim("Lese Spieldaten und Web-Listen …"), flush=True)
-    install_dir = installation_dir(args.wow_dir, args.product)
-    if install_dir is None:
-        sys.exit(f"Kein Installationsordner für Produkt {args.product} in {args.wow_dir} gefunden "
-                 f"(erwartet wird z. B. _forever_/.flavor.info)")
+    install_dir = installation_dir(args.wow_dir, PRODUCT)
+    if install_dir is None or os.path.basename(install_dir) != FLAVOR_DIR:
+        sys.exit(f"Kein {FLAVOR_DIR}-Client (Produkt {PRODUCT}) in {args.wow_dir} gefunden "
+                 f"(erwartet wird {FLAVOR_DIR}/.flavor.info mit {PRODUCT}). Andere Clients werden nie gelesen.")
     web = WebCache(args.cache, args.offline)
     build_name, tables, hotfix_path, hotfix_count, non_english = load_client_tables(
-        args.wow_dir, install_dir, args.product, web)
+        args.wow_dir, install_dir, PRODUCT, web)
     trainer, trainer_files = trainer_scans(install_dir)
 
     teaching_items = recipe_items(tables)

@@ -75,11 +75,12 @@ and nothing is written if anything disagrees. Only needed when nodes are added o
 | `--offline` | No internet; uses only the client and the existing cache |
 | `--dry-run` | Only report what would change, don't write any files |
 | `--wow-dir PATH` | WoW installation folder (alternatively the environment variable `WOW_DIR`) |
-| `--product NAME` | Client product from `World of Warcraft/.build.info` (default: `wowf` = WoW: Forever). Change `PRODUCT` in `build_data.py` if Blizzard renames the product |
 
-The installation folder of that product is looked up via `_*_/.flavor.info` (`wowf` → `_forever_`).
-The hotfix cache and the trainer scans are read only from that folder, so a second installed
-client (e.g. `_retail_`) never contributes data.
+Only the WoW: Forever client is ever read: product `wowf` in `.build.info` and its installation
+folder `_forever_` (found via `_*_/.flavor.info`). Game tables, hotfix cache and trainer scans all
+come from that client; the script stops if it can't find it, so a second installed client
+(e.g. `_retail_`) never contributes data. If Blizzard renames the product, change `PRODUCT`
+(and `FLAVOR_DIR`) in `build_data.py`.
 
 ## Files
 
@@ -150,7 +151,7 @@ recipes yet. Simply run again later.
 
 - **`Layout … nicht in der DBD-Definition`:** WoWDBDefs doesn't know the new client build yet.
   Usually added within hours to days; then run again.
-- **`Produkt … nicht in .build.info`:** adjust `--product` (column "Product" in `.build.info`).
+- **`Produkt … nicht in .build.info`:** Blizzard renamed the Forever product; change `PRODUCT` in `build_data.py` (column "Product" in `.build.info`).
 - **Suddenly far fewer recipes:** new content may be encrypted with a key that is not public yet.
   Try again later (every run updates the key list).
 - **`… wird für diesen Lauf übersprungen`:** a website failed twice in a row. The script stops
