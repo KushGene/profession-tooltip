@@ -5,6 +5,14 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.2.3 – 2026-11-24
+
+### Improved
+- Updated recipe sources in the Missing recipes window from ForeverDB.net's latest WoW: Forever data: trainers, vendors, drops and quests for about 770 recipes, trainer costs confirmed in Forever for 55 recipes (e.g. Green Iron Leggings 55s 56c instead of 9s) and nine newly seen vendors. Centaur Hoofwarmers now shows its two vendors in Desolace
+
+### Fixed
+- Centaur Hoofwarmers had a German fallback name; it now uses the English name like all other recipes
+
 ## 1.2.2 – 2026-11-22
 
 ### Improved
