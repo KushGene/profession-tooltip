@@ -5,6 +5,15 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.2.4 – 2026-11-25
+
+### Improved
+- Updated recipe sources in the Missing recipes window from ForeverDB.net's latest WoW: Forever data: more trainers and drop sources for about 200 recipes, Smudge Thunderwood in Alterac Mountains as a new vendor for Recipe: Thistle Tea, and Kurll's quest in Azshara as a second source for Recipe: Potion of Beast Slaying
+
+### Fixed
+- Corrected trainer costs for 17 recipes, e.g. Green Iron Leggings now 50s instead of 55s 56c and Green Iron Bracers 10s instead of 11s 11c
+- Three vendors were shown in the wrong zone: Malygen and Meilosh are in Felwood, Zannok Hidepiercer is in Silithus
+
 ## 1.2.3 – 2026-11-24
 
 ### Improved
