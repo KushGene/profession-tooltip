@@ -418,7 +418,7 @@ class NameSource:
             return None
         try:
             request = urllib.request.Request(url, headers={"User-Agent": build_data.USER_AGENT})
-            body = urllib.request.urlopen(request, timeout=build_data.WEB_TIMEOUT).read().decode("utf8")
+            body = build_data.urlopen(request).read().decode("utf8")
         except urllib.error.HTTPError as error:
             if error.code != 404:
                 self.failed += 1

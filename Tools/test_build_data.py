@@ -57,6 +57,26 @@ class LearningRankTests(unittest.TestCase):
         self.assertIn("Summe", output.getvalue())
 
 
+class AddressOrderTests(unittest.TestCase):
+    V4, V6 = build_data.socket.AF_INET, build_data.socket.AF_INET6
+
+    def infos(self, *families):
+        return [(family, 1, 6, "", (f"addr{i}", 443)) for i, family in enumerate(families)]
+
+    def test_ipv4_comes_first_even_when_dns_lists_ipv6_first(self):
+        # broken IPv6 must not delay every request by 4 dead addresses
+        order = build_data.address_order(self.infos(self.V6, self.V6, self.V6, self.V4, self.V4), self.V4)
+        self.assertEqual([info[0] for info in order], [self.V4, self.V6, self.V4, self.V6, self.V6])
+
+    def test_family_that_last_worked_is_tried_first(self):
+        order = build_data.address_order(self.infos(self.V4, self.V6), self.V6)
+        self.assertEqual([info[0] for info in order], [self.V6, self.V4])
+
+    def test_single_family_hosts_keep_dns_order(self):
+        infos = self.infos(self.V6, self.V6)
+        self.assertEqual(build_data.address_order(infos, self.V4), infos)
+
+
 class InstallationDirTests(unittest.TestCase):
     def test_flavor_dir_of_product_is_used(self):
         with tempfile.TemporaryDirectory() as directory:

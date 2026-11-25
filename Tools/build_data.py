@@ -41,6 +41,7 @@ import http.client
 import json
 import os
 import re
+import socket
 import sys
 import time
 import urllib.error
@@ -96,6 +97,85 @@ DBD_URL = "https://raw.githubusercontent.com/wowdev/WoWDBDefs/master/definitions
 MANIFEST_URL = "https://raw.githubusercontent.com/wowdev/WoWDBDefs/master/manifest.json"
 TACT_KEYS_URL = "https://raw.githubusercontent.com/wowdev/TACTKeys/master/WoW.txt"
 
+# ----------------------------------------------------------------------------
+# HTTP with fast address fallback
+# ----------------------------------------------------------------------------
+# socket.create_connection tries every address of a host one after another with the full timeout.
+# On a network with broken IPv6 that's 4 dead IPv6 addresses * 20 s before IPv4 is even tried, for
+# every single request – the run then crawls for half an hour without reporting an error.
+# Instead: IPv4 and IPv6 alternate (the family that last worked first, else IPv4), each address
+# gets only CONNECT_TIMEOUT to connect, and the full timeout applies to reading afterwards.
+CONNECT_TIMEOUT = 4
+_working_family = [socket.AF_INET]
+
+
+def address_order(infos, preferred):
+    """getaddrinfo results reordered: families alternate, starting with the preferred one."""
+    groups = {}
+    for info in infos:
+        groups.setdefault(info[0], []).append(info)
+    families = sorted(groups, key=lambda family: family != preferred)
+    ordered = []
+    while any(groups[family] for family in families):
+        for family in families:
+            if groups[family]:
+                ordered.append(groups[family].pop(0))
+    return ordered
+
+
+def create_connection(address, timeout=None, source_address=None, *, all_errors=False):
+    """Drop-in for socket.create_connection (http.client calls it), see above."""
+    host, port = address
+    if not isinstance(timeout, (int, float)):  # None or socket._GLOBAL_DEFAULT_TIMEOUT
+        timeout = socket.getdefaulttimeout()
+    error = None
+    infos = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
+    for family, socktype, proto, _, sockaddr in address_order(infos, _working_family[0]):
+        sock = socket.socket(family, socktype, proto)
+        try:
+            sock.settimeout(CONNECT_TIMEOUT if timeout is None else min(timeout, CONNECT_TIMEOUT))
+            if source_address:
+                sock.bind(source_address)
+            sock.connect(sockaddr)
+        except OSError as e:
+            sock.close()
+            error = e
+            continue
+        sock.settimeout(timeout)
+        _working_family[0] = family
+        return sock
+    raise error if error else OSError(f"keine Adresse für {host}")
+
+
+class _HTTPConnection(http.client.HTTPConnection):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._create_connection = create_connection
+
+
+class _HTTPSConnection(http.client.HTTPSConnection):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._create_connection = create_connection
+
+
+class _HTTPHandler(urllib.request.HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(_HTTPConnection, req)
+
+
+class _HTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_HTTPSConnection, req, context=self._context)
+
+
+_opener = urllib.request.build_opener(_HTTPHandler, _HTTPSHandler)
+
+
+def urlopen(request, timeout=WEB_TIMEOUT):
+    """urllib.request.urlopen with fast IPv4/IPv6 fallback (see above); also for build_sources."""
+    return _opener.open(request, timeout=timeout)
+
 
 # ----------------------------------------------------------------------------
 # Web cache
@@ -118,7 +198,7 @@ class WebCache:
         if self.failures.get(host, 0) < MAX_HOST_FAILURES:
             try:
                 request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-                body = urllib.request.urlopen(request, timeout=WEB_TIMEOUT).read().decode("utf8")
+                body = urlopen(request).read().decode("utf8")
             except (OSError, http.client.HTTPException, UnicodeDecodeError) as e:
                 # OSError covers URLError, timeouts and connection errors; HTTPException a download
                 # that breaks off halfway (IncompleteRead)
