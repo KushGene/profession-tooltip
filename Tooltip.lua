@@ -42,7 +42,7 @@ ns.On("SETTINGS_CHANGED", ClearCache)
 ns.On("DATA_CHANGED", ClearCache)
 
 local function IsVolatile()
-    return ns.db.showStockCount or ns.db.showRecipeValue
+    return ns.db.showStockCount or ns.db.showRecipeValue or ns.db.showCraftCost
 end
 
 -- Darkmoon lines mark quests the character is still too low for
@@ -121,6 +121,52 @@ end
 function ns.IsAuctionatorAvailable()
     local api = Auctionator and Auctionator.API and Auctionator.API.v1
     return api ~= nil and api.GetAuctionPriceByItemID ~= nil
+end
+
+local function GetReagentPrice(itemID)
+    local ah = GetAuctionPrice(itemID)
+    local vendor = ns.GetVendorPrice and ns.GetVendorPrice(itemID)
+    if ah and vendor then
+        return math.min(ah, vendor)
+    end
+    return ah or vendor
+end
+
+-- Returns: unitCost, totalCost, yield, missingCount (or nil if no reagent has a price)
+local function GetCraftCost(spellID, recipe)
+    local reagents = ns.GetRecipeReagents(recipe)
+    if not reagents then return nil end
+    local total, priced, missing = 0, 0, 0
+    for i = 1, #reagents, 2 do
+        local count = reagents[i + 1]
+        local price = GetReagentPrice(reagents[i])
+        if price then
+            total = total + price * count
+            priced = priced + 1
+        else
+            missing = missing + 1
+        end
+    end
+    if priced == 0 then return nil end
+    local yield = (ns.GetCreatedCount and ns.GetCreatedCount(spellID)) or 1
+    if yield < 1 then yield = 1 end
+    local unitCost = math.floor(total / yield + 0.5)
+    return unitCost, total, yield, missing
+end
+
+local function FormatCraftCost(spellID, recipe)
+    local unitCost, total, yield, missing = GetCraftCost(spellID, recipe)
+    if not unitCost then return nil end
+    local money
+    if yield > 1 and unitCost < 1 then
+        money = FormatMoney(total) .. " " .. Colorize(COLOR_HINT, "(×" .. yield .. ")")
+    else
+        money = FormatMoney(unitCost)
+    end
+    if missing > 0 then
+        return "~" .. money .. " " .. Colorize(COLOR_HINT, "(" .. string.format(L["CRAFT_COST_MISSING"], missing) .. ")")
+    end
+    return money
 end
 
 -- Should an unlearned recipe appear according to the filter?
@@ -307,6 +353,13 @@ local function AddCraftedSection(lines, itemID)
                 lines[#lines + 1] = "   " .. Colorize("ffcccccc", table.concat(parts, ", "))
             end
 
+            if ns.db.showCraftCost and ns.IsAuctionatorAvailable() then
+                local costText = FormatCraftCost(spellID, recipe)
+                if costText then
+                    lines[#lines + 1] = "   " .. Colorize(COLOR_HINT, L["CRAFT_COST"]) .. " " .. costText
+                end
+            end
+
             -- Where to get the recipe, while it isn't learned
             local sourceLines = difficulty == nil and ns.db.showRecipeSource and ns.GetSourceLines(spellID, MAX_SOURCE_VENDORS)
             if sourceLines then
@@ -315,6 +368,37 @@ local function AddCraftedSection(lines, itemID)
                 end
             end
         end
+    end
+end
+
+local function AddCraftCostSection(lines, itemID)
+    if not ns.IsAuctionatorAvailable() then return end
+    local spells = ns.GetRecipesCreating(itemID)
+    if not spells then return end
+    local bestSpellID, bestRecipe, bestUnitCost, bestTotal, bestMissing
+    for _, spellID in ipairs(spells) do
+        local recipe, professionID = ns.GetRecipe(spellID)
+        if recipe and not ns.db.disabledProfessions[professionID] then
+            local unitCost, total, _, missing = GetCraftCost(spellID, recipe)
+            if unitCost then
+                local better = not bestSpellID
+                if not better then
+                    if (missing == 0) ~= (bestMissing == 0) then
+                        better = missing == 0
+                    elseif unitCost ~= bestUnitCost then
+                        better = unitCost < bestUnitCost
+                    elseif total ~= bestTotal then
+                        better = total < bestTotal
+                    end
+                end
+                if better then
+                    bestSpellID, bestRecipe, bestUnitCost, bestTotal, bestMissing = spellID, recipe, unitCost, total, missing
+                end
+            end
+        end
+    end
+    if bestSpellID then
+        lines[#lines + 1] = Colorize(COLOR_HINT, L["CRAFT_COST"]) .. " " .. FormatCraftCost(bestSpellID, bestRecipe)
     end
 end
 
@@ -525,6 +609,8 @@ local function BuildLines(itemID, shift)
     end
     if db.showCraftedBy then
         Section(AddCraftedSection, itemID)
+    elseif db.showCraftCost then
+        Section(AddCraftCostSection, itemID)
     end
     Section(AddIngredientSection, itemID, shift)
     if db.showDarkmoon then

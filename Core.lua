@@ -99,6 +99,7 @@ local DEFAULTS = {
     showCraftedReagents = true,    --   ... including reagents (sub-option)
     showStockCount = false,        -- "enough for N" from bags + bank
     showRecipeValue = false,       -- auction value of the product (Auctionator)
+    showCraftCost = false,         -- crafted items: material cost (Auctionator + vendor prices)
     showRecipeSource = false,      -- unlearned recipes: where to get them (trainer, vendor, drop, quest)
     showDarkmoon = true,           -- items for Darkmoon Faire quests: amount and reward
     showSurname = true,            -- WoW Forever: surname after the character name ("Leo Brightvale")
@@ -110,7 +111,32 @@ local DEFAULTS = {
     legacyCheck = true,            -- point out CookingTooltip/AlchemyTooltip on login
     characters = {},               -- account-wide: ["Name-Realm"] = { class, professions, known }
     trainerSkills = {},            -- account-wide, from the trainer scan: [spellID] = required rank
+    seenNewOptions = {},           -- [optionKey] = true once the user has seen the option's "NEW" badge
 }
+
+-- Options that currently show a "NEW" badge for existing users until they visit the tab
+ns.NEW_OPTIONS = {
+    showCraftCost = true,
+}
+
+function ns.IsOptionNew(key)
+    return key ~= nil
+        and ns.NEW_OPTIONS[key] == true
+        and not (ns.db and ns.db.seenNewOptions and ns.db.seenNewOptions[key])
+end
+
+function ns.MarkOptionSeen(key)
+    if key and ns.NEW_OPTIONS[key] and ns.db and ns.db.seenNewOptions then
+        ns.db.seenNewOptions[key] = true
+    end
+end
+
+function ns.MarkAllNewOptionsSeen()
+    if not (ns.db and ns.db.seenNewOptions) then return end
+    for key in pairs(ns.NEW_OPTIONS) do
+        ns.db.seenNewOptions[key] = true
+    end
+end
 
 local CHAR_DEFAULTS = {
     known = {},       -- [spellID] = difficulty (0 orange, 1 yellow, 2 green, 3 gray)
@@ -149,10 +175,20 @@ end
 
 ns.RegisterEvent("ADDON_LOADED", function(_, loadedName)
     if loadedName ~= addonName then return end
+    local isFresh = type(ProfessionTooltipDB) ~= "table" or next(ProfessionTooltipDB) == nil
     ProfessionTooltipDB = ApplyDefaults(type(ProfessionTooltipDB) == "table" and ProfessionTooltipDB or {}, DEFAULTS)
     ProfessionTooltipCharDB = ApplyDefaults(type(ProfessionTooltipCharDB) == "table" and ProfessionTooltipCharDB or {}, CHAR_DEFAULTS)
     ns.db = ProfessionTooltipDB
     ns.char = ProfessionTooltipCharDB
+    if isFresh then
+        ns.MarkAllNewOptionsSeen()
+    else
+        for key in pairs(ns.db.seenNewOptions) do
+            if not ns.NEW_OPTIONS[key] then
+                ns.db.seenNewOptions[key] = nil
+            end
+        end
+    end
 end)
 
 -- ----------------------------------------------------------------------------

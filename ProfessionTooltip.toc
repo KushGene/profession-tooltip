@@ -52,7 +52,9 @@ Data\Cooking.lua
 Data\FirstAid.lua
 Data\Fishing.lua
 Data\RecipeItems.lua
+Data\CreatedCounts.lua
 Data\RecipeSources.lua
+Data\VendorPrices.lua
 Data\Names\enUS.lua
 Data\Names\deDE.lua
 Data\Names\frFR.lua

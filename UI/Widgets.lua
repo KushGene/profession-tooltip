@@ -30,7 +30,19 @@ local Column = {}
 Column.__index = Column
 
 function Widgets.NewColumn(parent, x, y, width)
-    return setmetatable({ parent = parent, x = x, y = y, width = width, items = {} }, Column)
+    return setmetatable({ parent = parent, x = x, y = y, width = width, items = {}, newKeys = {} }, Column)
+end
+
+local function CreateNewBadge(parent)
+    local badge = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    badge:SetHeight(14)
+    Widgets.Backdrop(badge, { 0.42, 0.24, 0.06, 1 }, { Widgets.ACCENT[1], Widgets.ACCENT[2], Widgets.ACCENT[3], 0.9 })
+    badge.text = badge:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    badge.text:SetPoint("CENTER")
+    badge.text:SetText(ns.L["NEW_BADGE"])
+    badge.text:SetTextColor(1, 0.85, 0.35)
+    badge:SetWidth(math.max(24, badge.text:GetStringWidth() + 8))
+    return badge
 end
 
 function Column:Space(height)
@@ -53,33 +65,51 @@ function Column:Header(text)
 end
 
 -- Creates label + description to the right of a control of width controlWidth
-function Column:Label(anchor, controlWidth, label, desc)
+function Column:Label(anchor, controlWidth, label, desc, hasBadge)
+    local availWidth = self.width - controlWidth - 6
     local text = self.parent:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     text:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 6, -5)
-    text:SetWidth(self.width - controlWidth - 6)
     text:SetJustifyH("LEFT")
     text:SetText(label)
+
+    local badge
+    if hasBadge then
+        local naturalWidth = text:GetStringWidth()
+        badge = CreateNewBadge(self.parent)
+        local maxLabelW = availWidth - badge:GetWidth() - 6
+        text:SetWidth(maxLabelW)
+        if naturalWidth <= maxLabelW then
+            badge:SetPoint("TOPLEFT", text, "TOPLEFT", naturalWidth + 6, 1)
+        else
+            badge:SetPoint("TOPLEFT", text, "TOPRIGHT", 6, 1)
+        end
+    else
+        text:SetWidth(availWidth)
+    end
 
     local height = text:GetStringHeight()
     local descText
     if desc then
         descText = self.parent:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
         descText:SetPoint("TOPLEFT", text, "BOTTOMLEFT", 0, -3)
-        descText:SetWidth(self.width - controlWidth - 6)
+        descText:SetWidth(availWidth)
         descText:SetJustifyH("LEFT")
         descText:SetText(desc)
         height = height + 3 + descText:GetStringHeight()
     end
-    return text, descText, height
+    return text, descText, height, badge, availWidth
 end
 
--- opts: label, desc, get(), set(value), enabled() optional, indent (sub-option) optional
+-- opts: label, desc, get(), set(value), enabled() optional, indent (sub-option) optional, key/isNew() optional
 function Column:Check(opts)
     local indent = opts.indent and 24 or 0
     local cb = CreateFrame("CheckButton", nil, self.parent, "UICheckButtonTemplate")
     cb:SetSize(24, 24)
     cb:SetPoint("TOPLEFT", self.x + indent, self.y + 3)
-    local text, _, height = self:Label(cb, 24 + indent, opts.label, opts.desc)
+    if opts.key and opts.isNew then
+        self.newKeys[#self.newKeys + 1] = opts.key
+    end
+    local text, _, height, badge, availWidth = self:Label(cb, 24 + indent, opts.label, opts.desc, opts.isNew ~= nil)
     cb:SetHitRectInsets(0, -(self.width - 24 - indent), 0, 0) -- clicking the text toggles too
     cb:SetScript("OnClick", function(button)
         opts.set(button:GetChecked() and true or false)
@@ -91,6 +121,11 @@ function Column:Check(opts)
         local enabled = not opts.enabled or opts.enabled()
         cb:SetEnabled(enabled)
         text:SetFontObject(enabled and "GameFontHighlight" or "GameFontDisable")
+        if badge then
+            local showNew = opts.isNew() and true or false
+            badge:SetShown(showNew)
+            text:SetWidth(showNew and (availWidth - badge:GetWidth() - 6) or availWidth)
+        end
     end
     self.items[#self.items + 1] = item
     self.y = self.y - math.max(24, height) - 12
@@ -98,17 +133,34 @@ function Column:Check(opts)
 end
 
 -- Selection as a segmented bar: all values side by side, the selected one is highlighted.
--- opts: label, desc, values, format(value), get(), set(value), enabled() optional
+-- opts: label, desc, values, format(value), get(), set(value), enabled() optional, key/isNew() optional
 local SEGMENT_HEIGHT, SEGMENT_GAP, SEGMENT_PADDING = 22, 4, 20
 local SEGMENT_BG, SEGMENT_BORDER = { 0.12, 0.12, 0.14, 1 }, { 1, 1, 1, 0.12 }
 local SEGMENT_BG_SELECTED = { 0.36, 0.22, 0.07, 1 }
 
 function Column:Choice(opts)
+    if opts.key and opts.isNew then
+        self.newKeys[#self.newKeys + 1] = opts.key
+    end
     local label = self.parent:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     label:SetPoint("TOPLEFT", self.x, self.y)
-    label:SetWidth(self.width)
     label:SetJustifyH("LEFT")
     label:SetText(opts.label)
+
+    local badge
+    if opts.isNew then
+        local naturalWidth = label:GetStringWidth()
+        badge = CreateNewBadge(self.parent)
+        local maxLabelW = self.width - badge:GetWidth() - 6
+        label:SetWidth(maxLabelW)
+        if naturalWidth <= maxLabelW then
+            badge:SetPoint("TOPLEFT", label, "TOPLEFT", naturalWidth + 6, 1)
+        else
+            badge:SetPoint("TOPLEFT", label, "TOPRIGHT", 6, 1)
+        end
+    else
+        label:SetWidth(self.width)
+    end
     local y = self.y - label:GetStringHeight() - 3
 
     if opts.desc then
@@ -151,6 +203,11 @@ function Column:Choice(opts)
         local current = opts.get()
         local enabled = not opts.enabled or opts.enabled()
         label:SetFontObject(enabled and "GameFontHighlight" or "GameFontDisable")
+        if badge then
+            local showNew = opts.isNew() and true or false
+            badge:SetShown(showNew)
+            label:SetWidth(showNew and (self.width - badge:GetWidth() - 6) or self.width)
+        end
         for _, button in ipairs(buttons) do
             local selected = button.value == current
             button.selected = selected

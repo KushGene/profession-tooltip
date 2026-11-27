@@ -13,6 +13,8 @@ local DIFFICULTY_OPTIMAL, DIFFICULTY_MEDIUM, DIFFICULTY_EASY, DIFFICULTY_TRIVIAL
 local recipes = {}          -- [spellID] = recipe
 local recipeProfession = {} -- [spellID] = skillLineID
 local recipeItems = {}      -- [recipe item] = taught spell
+local createdCounts = {}    -- [spellID] = crafted quantity (> 1)
+local vendorPrices = {}     -- [itemID] = unit vendor buy price in copper
 local itemsBySpell          -- [spellID] = recipe item, built on demand
 local reagentIndex          -- [itemID] = { spellID, ... }, sorted; built on demand
 local createdIndex          -- [itemID] = { spellID, ... } for crafted items
@@ -29,6 +31,18 @@ function ns.RegisterRecipeItems(list)
         recipeItems[itemID] = spellID
     end
     itemsBySpell = nil
+end
+
+function ns.RegisterCreatedCounts(list)
+    for spellID, count in pairs(list) do
+        createdCounts[spellID] = count
+    end
+end
+
+function ns.RegisterVendorPrices(list)
+    for itemID, price in pairs(list) do
+        vendorPrices[itemID] = price
+    end
 end
 
 -- Returns recipe and profession; also covers scanned recipes without a DB entry
@@ -75,6 +89,14 @@ end
 function ns.GetCreatedItem(recipe)
     local itemID = recipe[CREATED]
     return itemID and itemID ~= 0 and itemID or nil
+end
+
+function ns.GetCreatedCount(spellID)
+    return createdCounts[spellID] or 1
+end
+
+function ns.GetVendorPrice(itemID)
+    return vendorPrices[itemID]
 end
 
 function ns.GetGrayAt(recipe)

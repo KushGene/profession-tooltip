@@ -12,7 +12,9 @@ Notes for working on Profession Tooltip. For what the addon does, see the [READM
 | `Database.lua` | Recipe registry, indexes ingredient → recipes and item → recipes (built once, on demand) |
 | `Data/<Profession>.lua` | **Generated** recipe data, one file per profession |
 | `Data/RecipeItems.lua` | **Generated**: recipe item → taught spell |
+| `Data/CreatedCounts.lua` | **Generated**: crafted quantity for recipes producing more than 1 item |
 | `Data/RecipeSources.lua` | **Generated** by `Tools/build_sources.py`: where each recipe is learned (trainer, vendor, drop, quest) and the vendors' places, packed in strings |
+| `Data/VendorPrices.lua` | **Generated** by `Tools/build_sources.py`: unit vendor buy prices for unlimited vendor reagents |
 | `Data/Names/<locale>.lua` | **Generated** by `Tools/build_sources.py`: names of vendors, drop sources and quests by ID; `enUS` is always loaded, the others only for their client language |
 | `Data/Darkmoon.lua` | **Maintained by hand** (26 items, no generator): items Darkmoon Faire quests take, amount, reward and level, from CMaNGOS classic-db `quest_template` (the client has no quest requirements); source quest IDs are in the file header |
 | `Sources.lua` | Unpacks recipe sources on demand and turns them into text (short tag, detailed lines), filters vendors by faction, sets the map pin; zone, faction and currency names come from the client |
@@ -65,6 +67,7 @@ luajit Tools/test_professions.lua
 luajit Tools/test_minimap.lua
 luajit Tools/test_sources.lua
 luajit Tools/test_extras.lua
+luajit Tools/test_craft_cost.lua
 python3 -m unittest discover -s Tools -p 'test_*.py'
 ```
 

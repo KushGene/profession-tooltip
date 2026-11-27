@@ -10,6 +10,7 @@ local keys = {
     "SOURCE_WORLD_DROP", "RECIPES_CLICK_MAP",
     "OPT_DARKMOON", "OPT_DARKMOON_DESC", "DARKMOON_FAIRE", "DARKMOON_MIN_LEVEL", "OPT_SURNAME", "OPT_SURNAME_DESC",
     "DARKMOON_TURNIN", "DARKMOON_TICKET", "DARKMOON_TICKETS",
+    "OPT_CRAFT_COST", "OPT_CRAFT_COST_DESC", "CRAFT_COST", "CRAFT_COST_MISSING", "NEW_BADGE",
 }
 local files = { "deDE", "frFR", "esES", "ruRU", "ptBR", "koKR", "zhCN", "zhTW" }
 -- Translations that are the same word as in English
@@ -30,7 +31,7 @@ for _, locale in ipairs({ "enUS", "enGB", "deDE", "frFR", "esES", "esMX", "ruRU"
         checks = checks + 1
     end
     -- Texts the code fills in must keep their placeholders in every language
-    for key, count in pairs({ RECIPES_SUMMARY = 2, RECIPES_SHOWN = 1, SOURCE_MORE_VENDORS = 1, DARKMOON_MIN_LEVEL = 1, DARKMOON_TICKETS = 1, DARKMOON_TURNIN = 1 }) do
+    for key, count in pairs({ RECIPES_SUMMARY = 2, RECIPES_SHOWN = 1, SOURCE_MORE_VENDORS = 1, DARKMOON_MIN_LEVEL = 1, DARKMOON_TICKETS = 1, DARKMOON_TURNIN = 1, CRAFT_COST_MISSING = 1 }) do
         local _, found = ns.L[key]:gsub("%%d", "")
         assert(found == count and not ns.L[key]:find("%%%d%$"), locale .. ": placeholders of " .. key)
     end

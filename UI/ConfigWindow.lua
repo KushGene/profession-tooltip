@@ -9,6 +9,7 @@ local HEADER_HEIGHT = 52
 local LEFT_X, LEFT_WIDTH = 22, 390
 local RIGHT_X = LEFT_X + LEFT_WIDTH + 36
 local CONTENT_Y = -HEADER_HEIGHT - 48
+local VIEW_HEIGHT = HEIGHT + CONTENT_Y - 20
 
 local MAX_LINE_VALUES = { 5, 8, 10, 15, 20, 30, 0 }
 local HEADER_STYLES = { "full", "icon", "name" }
@@ -23,12 +24,14 @@ local Refresh -- forward declaration, defined below
 
 local function Option(key, label, desc, enabled, indent)
     return {
+        key = key,
         label = L[label],
         desc = L[desc],
         get = function() return ns.db[key] end,
         set = function(value) ns.SetOption(key, value) end,
         enabled = enabled,
         indent = indent,
+        isNew = ns.NEW_OPTIONS and ns.NEW_OPTIONS[key] and function() return ns.IsOptionNew(key) end or nil,
     }
 end
 
@@ -206,6 +209,7 @@ local function BuildExtrasTab(page)
     col:Check(Option("showCraftedReagents", "OPT_CRAFTED_REAGENTS", "OPT_CRAFTED_REAGENTS_DESC", IsCraftedShown, true))
     col:Check(Option("showStockCount", "OPT_STOCK", "OPT_STOCK_DESC", IsDetailed))
     col:Check(Option("showRecipeValue", "OPT_VALUE", "OPT_VALUE_DESC", ns.IsAuctionatorAvailable))
+    col:Check(Option("showCraftCost", "OPT_CRAFT_COST", "OPT_CRAFT_COST_DESC", ns.IsAuctionatorAvailable))
     col:Check(Option("showDarkmoon", "OPT_DARKMOON", "OPT_DARKMOON_DESC"))
     col:Space(6)
     col:Header(L["SECTION_CHARACTERS"])
@@ -500,13 +504,52 @@ local function CreateHeader(frame)
 end
 
 local function CreateTabs(frame)
-    local buttons, pages = {}, {}
+    local buttons, scrolls, sliders = {}, {}, {}
+    local activeTab
+
+    local function HasNewOptions(index)
+        local col = columns[index]
+        if not (col and col.newKeys) then return false end
+        for _, key in ipairs(col.newKeys) do
+            if ns.IsOptionNew(key) then
+                return true
+            end
+        end
+        return false
+    end
+
+    local function UpdateTabDots()
+        for i, button in ipairs(buttons) do
+            button.newDot:SetShown(HasNewOptions(i))
+        end
+    end
+
+    local function MarkTabSeen(index)
+        local col = index and columns[index]
+        if not (col and col.newKeys) then return end
+        local changed = false
+        for _, key in ipairs(col.newKeys) do
+            if ns.IsOptionNew(key) then
+                ns.MarkOptionSeen(key)
+                changed = true
+            end
+        end
+        if changed then
+            col:Refresh()
+            UpdateTabDots()
+        end
+    end
 
     local function Select(index)
+        if activeTab and activeTab ~= index and frame:IsShown() then
+            MarkTabSeen(activeTab)
+        end
+        activeTab = index
         ns.db.lastTab = index
         for i, button in ipairs(buttons) do
             local selected = (i == index)
-            pages[i]:SetShown(selected)
+            scrolls[i]:SetShown(selected)
+            sliders[i]:SetShown(selected and sliders[i].maxScroll > 0)
             button.underline:SetShown(selected)
             button.text:SetFontObject(selected and "GameFontHighlight" or "GameFontNormal")
         end
@@ -527,15 +570,50 @@ local function CreateTabs(frame)
         button.underline:SetHeight(2)
         button.underline:SetPoint("BOTTOMLEFT")
         button.underline:SetPoint("BOTTOMRIGHT")
+        button.newDot = button:CreateTexture(nil, "ARTWORK")
+        button.newDot:SetSize(6, 6)
+        button.newDot:SetPoint("TOPRIGHT", -3, -3)
+        button.newDot:SetColorTexture(unpack(Widgets.ACCENT))
+        button.newDot:Hide()
         button:SetScript("OnClick", function() Select(i) end)
         x = x + button:GetWidth() + 2
         buttons[i] = button
 
-        local page = CreateFrame("Frame", nil, frame)
-        page:SetPoint("TOPLEFT", LEFT_X, CONTENT_Y)
-        page:SetSize(LEFT_WIDTH, HEIGHT + CONTENT_Y - 20)
-        pages[i] = page
-        columns[#columns + 1] = tab.build(page)
+        local scroll = CreateFrame("ScrollFrame", nil, frame)
+        scroll:SetPoint("TOPLEFT", LEFT_X, CONTENT_Y)
+        scroll:SetSize(LEFT_WIDTH, VIEW_HEIGHT)
+        scroll:EnableMouseWheel(true)
+
+        local page = CreateFrame("Frame", nil, scroll)
+        local col = tab.build(page)
+        columns[#columns + 1] = col
+        local contentHeight = math.max(VIEW_HEIGHT, -col.y + 8)
+        page:SetSize(LEFT_WIDTH, contentHeight)
+        scroll:SetScrollChild(page)
+
+        local maxScroll = math.max(0, contentHeight - VIEW_HEIGHT)
+        local slider = CreateFrame("Slider", nil, frame)
+        slider:SetOrientation("VERTICAL")
+        slider:SetWidth(6)
+        slider:SetPoint("TOPLEFT", LEFT_X + LEFT_WIDTH + 6, CONTENT_Y)
+        slider:SetHeight(VIEW_HEIGHT)
+        slider:SetThumbTexture("Interface\\Buttons\\WHITE8x8")
+        local thumb = slider:GetThumbTexture()
+        thumb:SetSize(6, 36)
+        thumb:SetVertexColor(Widgets.ACCENT[1], Widgets.ACCENT[2], Widgets.ACCENT[3], 0.7)
+        slider:SetMinMaxValues(0, maxScroll)
+        slider:SetValueStep(1)
+        slider:SetValue(0)
+        slider.maxScroll = maxScroll
+        slider:SetScript("OnValueChanged", function(_, value)
+            scroll:SetVerticalScroll(value)
+        end)
+        scroll:SetScript("OnMouseWheel", function(_, delta)
+            local nextValue = math.max(0, math.min(maxScroll, slider:GetValue() - delta * 28))
+            slider:SetValue(nextValue)
+        end)
+        scrolls[i] = scroll
+        sliders[i] = slider
     end
 
     local tabLine = Widgets.Line(frame, 0.08)
@@ -543,6 +621,8 @@ local function CreateTabs(frame)
     tabLine:SetPoint("TOPLEFT", LEFT_X, -HEADER_HEIGHT - 38)
     tabLine:SetWidth(LEFT_WIDTH)
 
+    frame.UpdateTabDots = UpdateTabDots
+    frame.MarkActiveTabSeen = function() MarkTabSeen(activeTab) end
     Select(TABS[ns.db.lastTab] and ns.db.lastTab or 1) -- lastTab may be missing or out of range
 end
 
@@ -571,6 +651,7 @@ local function CreateWindow()
 
     frame.preview = CreatePreview(frame)
     frame:SetScript("OnShow", function() Refresh() end)
+    frame:SetScript("OnHide", function() frame.MarkActiveTabSeen() end)
     frame:Hide()
     return frame
 end
@@ -580,6 +661,7 @@ Refresh = function()
     for _, col in ipairs(columns) do
         col:Refresh()
     end
+    window.UpdateTabDots()
     window.preview.Render()
 end
 
