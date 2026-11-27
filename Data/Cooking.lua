@@ -1,5 +1,5 @@
 -- Data/Cooking.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70938patch1.60.1_Retail).
+-- Generated automatically by Tools/build_data.py from the client (WOW-71139patch1.60.1_Retail).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
@@ -27,10 +27,10 @@ ns.RegisterRecipes(185, {
     [1249957] = { 25, "Peace Tea", { 159, 1, 2447, 2 }, 249865, 30, 38, 45 },
     [1249963] = { 25, "Venomous Smoothie", { 159, 1, 2678, 1, 1475, 1 }, 249871, 30, 38, 45 },
     [1250156] = { 25, "Tasty Raptor Bites", { 3685, 1, 2678, 4 }, 250079, 35, 55, 75 },
-    [1270633] = { 25, "Skywall Souffle", { 6889, 2, 10284, 1 }, 263509, 30, 38, 45 },
+    [1270633] = { 25, "Skywall Souffle", { 6889, 1, 2678, 1 }, 263509, 30, 38, 45 },
     [6414] = { 35, "Roasted Kodo Meat", { 5467, 1, 2678, 1 }, 5474, 75, 95, 115 },
     [21144] = { 35, "Egg Nog", { 6889, 1, 1179, 1, 17196, 1, 17194, 1 }, 17198, 75, 95, 115 },
-    [1270635] = { 35, "Pincer Bites", { 2675, 1, 10284, 1 }, 263512, 40, 48, 55 },
+    [1270635] = { 35, "Pincer Bites", { 2675, 1, 2678, 1 }, 263512, 40, 48, 55 },
     [8607] = { 40, "Smoked Bear Meat", { 3173, 1 }, 6890, 80, 100, 120 },
     [2541] = { 50, "Coyote Steak", { 2673, 1 }, 2684, 90, 110, 130 },
     [2542] = { 50, "Goretusk Liver Pie", { 723, 1, 2678, 1 }, 724, 90, 110, 130 },

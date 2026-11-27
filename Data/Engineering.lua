@@ -1,5 +1,5 @@
 -- Data/Engineering.lua
--- Generated automatically by Tools/build_data.py from the client (WOW-70938patch1.60.1_Retail).
+-- Generated automatically by Tools/build_data.py from the client (WOW-71139patch1.60.1_Retail).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
@@ -22,14 +22,14 @@ ns.RegisterRecipes(202, {
     [3918] = { 1, "Rough Blasting Powder", { 2835, 1 }, 4357, 20, 30, 40 },
     [3919] = { 1, "Rough Dynamite", { 4357, 1, 2589, 1 }, 4358, 30, 45, 60 },
     [3920] = { 1, "Crafted Light Shot", { 4357, 1, 2840, 1 }, 8067, 30, 45, 60 },
-    [1266893] = { 25, "SAF-T Tabs", { 2570, 1, 249409, 1 }, 260784, 25, 28, 30 },
+    [1266893] = { 25, "SAF-T Tabs", { 2589, 1, 249409, 1 }, 260784, 25, 28, 30 },
     [1266905] = { 25, "SAF-T Dynamite", { 4357, 2, 2589, 1 }, 260792, 25, 30, 35 },
     [3922] = { 30, "Handful of Copper Bolts", { 2840, 1 }, 4359, 45, 53, 60 },
     [3923] = { 30, "Rough Copper Bomb", { 2840, 1, 4359, 1, 4357, 2, 2589, 1 }, 4360, 60, 75, 90 },
     [3924] = { 50, "Copper Tube", { 2840, 2, 2880, 1 }, 4361, 80, 95, 110 },
     [3925] = { 50, "Rough Boomstick", { 4361, 1, 4359, 1, 4399, 1 }, 4362, 80, 95, 110 },
     [7430] = { 50, "Arclight Spanner", { 2840, 6 }, 6219, 70, 80, 90 },
-    [1266906] = { 55, "SAF-T Copper Bomb", { 2840, 1, 4359, 1, 4357, 2, 2570, 1, 260784, 2 }, 260793, 55, 60, 65 },
+    [1266906] = { 55, "SAF-T Copper Bomb", { 2840, 1, 4359, 1, 4357, 2, 2589, 1, 260784, 2 }, 260793, 55, 60, 65 },
     [3977] = { 60, "Crude Scope", { 4361, 1, 774, 1, 4359, 1 }, 4405, 90, 105, 120 },
     [3926] = { 65, "Copper Modulator", { 4359, 2, 2840, 1, 2589, 2 }, 4363, 95, 110, 125 },
     [1302161] = { 65, "Harvester Override Signalcaster", { 255007, 4, 4363, 2, 4405, 1 }, 277132, 65, 73, 80 },

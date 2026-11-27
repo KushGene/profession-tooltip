@@ -5,6 +5,18 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.3.0 – 2026-11-27
+
+### New
+- Added "Show crafting cost" under Extras (disabled by default, requires Auctionator): shows the material cost to craft an item in its tooltip using Auctionator scan prices, vendor prices for basic unlimited vendor reagents, and recipe yields for multi-output crafts
+- New settings options are highlighted with a "NEW" badge (and a small dot on their tab) until you have visited the tab
+
+### Improved
+- Updated recipe data for WoW: Forever build 1.60.1.71139: corrected the reagents of Skywall Souffle and Pincer Bites
+
+### Fixed
+- SAF-T Tabs and SAF-T Copper Bomb showed Linen Cloak instead of Linen Cloth as their cloth reagent
+
 ## 1.2.4 – 2026-11-25
 
 ### Improved
