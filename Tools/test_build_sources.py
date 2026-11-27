@@ -151,5 +151,34 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual(index["title"], [5, 6])
 
 
+class VendorPricesTests(unittest.TestCase):
+    def test_extracts_unlimited_multi_vendor_reagents_with_unit_price(self):
+        npcs_lua = '''-- test
+local _, ns = ...
+ns.npcs = {[10]={"A","",1453,0,0,"A",1},[11]={"B","",1454,0,0,"H",1},[12]={"C","",1455,0,0,"A",1}}
+ns.sold = {
+    [3371] = {10, 20, 5, 0, 11, 20, 5, 0},          -- Empty Vial: 2 unlimited vendors, 20c / 5 = 4c
+    [2678] = {10, 10, 5, 0, 11, 10, 5, 1, 12, 10, 5, 0}, -- Mild Spices: 2 unlimited (11 is limited) -> 2c
+    [13468] = {10, 500000, 1, 0},                    -- Black Lotus: single vendor -> excluded
+    [7001] = {10, 50, 1, 1, 11, 50, 1, 1},           -- limited only -> excluded
+    [7002] = {10, 50, 1, 0, 999, 50, 1, 0},          -- 999 not in npcs -> only 1 known vendor -> excluded
+    [7003] = {10, 100, 1, 0, 11, 100, 1, 0},         -- not in reagent_ids -> excluded
+}
+'''
+        prices = build_sources.vendor_reagent_prices(npcs_lua, {3371, 2678, 13468, 7001, 7002})
+        self.assertEqual(prices, {3371: 4, 2678: 2})
+
+    def test_vendor_prices_round_trip_and_credit_line(self):
+        prices = {2678: 2, 3371: 4}
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "VendorPrices.lua")
+            lines = build_sources.vendor_prices_lines(prices, "v1")
+            self.assertTrue(lines[1].startswith("-- Data: ForeverDB.net (https://foreverdb.net)"))
+            self.assertTrue(build_data.write_if_changed(path, lines, build_sources.GENERATED_LINE))
+            self.assertEqual(build_sources.read_vendor_prices(path), prices)
+            newer = build_sources.vendor_prices_lines(prices, "v2")
+            self.assertFalse(build_data.write_if_changed(path, newer, build_sources.GENERATED_LINE))
+
+
 if __name__ == "__main__":
     unittest.main()

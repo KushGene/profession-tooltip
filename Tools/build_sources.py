@@ -66,6 +66,7 @@ CREDIT_LINE = ("-- Data: ForeverDB.net (https://foreverdb.net). Reuse requires t
 GENERATED_LINE = "-- Generated automatically by Tools/build_sources.py"
 
 MAX_VENDORS = 10          # per recipe; the list in the game shows fewer anyway
+MIN_PRICE_VENDORS = 2     # minimum unlimited vendors to treat a reagent as vendor-bought
 MIN_MATCH = 0.9           # share of the addon's recipes ForeverDB must know, else the format changed
 MIN_TRANSLATED = 0.8      # share of the names every language must have, else nothing is written
 KINDS = ("Lehrer", "Händler", "Drop", "Quest", "automatisch", "nur Rezept-Item")
@@ -557,12 +558,58 @@ def read_existing(path):
                  for part in (parts[0], parts[1] if len(parts) > 1 else ""))
 
 
+def vendor_reagent_prices(npcs_text, reagent_ids):
+    """{item_id: unit copper price} for reagents sold in unlimited quantity by >= MIN_PRICE_VENDORS NPCs."""
+    npc_tables = lua_tables(npcs_text)
+    sold = npc_tables.get("sold", {})
+    npcs = npc_tables.get("npcs", {})
+    prices = {}
+    for item_id in sorted(reagent_ids):
+        row = as_list(sold.get(item_id))
+        if not row:
+            continue
+        by_npc = {}
+        for npc, price, stack, limited in zip(row[0::4], row[1::4], row[2::4], row[3::4]):
+            if npc in npcs and not limited and price and price > 0:
+                unit = max(1, int(round(price / (stack or 1))))
+                if npc not in by_npc or unit < by_npc[npc]:
+                    by_npc[npc] = unit
+        if len(by_npc) >= MIN_PRICE_VENDORS:
+            prices[item_id] = min(by_npc.values())
+    return prices
+
+
+def vendor_prices_lines(prices, version):
+    lines = [
+        "-- Data/VendorPrices.lua",
+        CREDIT_LINE,
+        f"{GENERATED_LINE} from ForeverDB's addon data ({version}).",
+        "-- Do not edit by hand; run the script again instead.",
+        "local _, ns = ...",
+        "",
+        "-- [itemID] = unit buy price in copper (unlimited vendor reagents)",
+        "ns.RegisterVendorPrices({",
+    ]
+    for item_id, price in sorted(prices.items()):
+        lines.append(f"    [{item_id}] = {price},")
+    lines.append("})")
+    return lines
+
+
+def read_vendor_prices(path):
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf8") as f:
+        return {int(a): int(b) for a, b in re.findall(r"\[(\d+)\] = (\d+),", f.read())}
+
+
 def count_changes(old, new):
     return (len(set(new) - set(old)), len(set(old) - set(new)),
             sum(1 for key in set(old) & set(new) if old[key] != new[key]))
 
 
-def print_report(stats, version, sources, npcs, old_sources, old_npcs, dry_run):
+def print_report(stats, version, sources, npcs, old_sources, old_npcs, dry_run,
+                 vendor_prices=None, old_vendor_prices=None):
     bold, dim, green, yellow = build_data.bold, build_data.dim, build_data.green, build_data.yellow
     print(bold("Profession Tooltip – Bezugsquellen der Rezepte"
                + (" (Testlauf, es wird nichts geschrieben)" if dry_run else "")))
@@ -590,7 +637,10 @@ def print_report(stats, version, sources, npcs, old_sources, old_npcs, dry_run):
 
     build_data.heading("Änderungen gegenüber den vorhandenen Daten")
     changes = 0
-    for label, old, new in (("Rezepte", old_sources, sources), ("Händler-NPCs", old_npcs, npcs)):
+    rows = [("Rezepte", old_sources, sources), ("Händler-NPCs", old_npcs, npcs)]
+    if vendor_prices is not None:
+        rows.append(("Händler-Preise", old_vendor_prices or {}, vendor_prices))
+    for label, old, new in rows:
         added, removed, changed = count_changes(old, new)
         changes += added + removed + changed
         print(f"  {label:14} {len(new):>5} Einträge   {added} neu, {removed} entfernt, {changed} geändert")
@@ -613,10 +663,12 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="nur prüfen und berichten, keine Dateien schreiben")
     args = parser.parse_args()
 
-    own_recipes = {}
+    own_recipes, own_reagents = {}, set()
     for file_name, _ in build_data.PROFESSIONS.values():
-        for spell_id in build_data.read_data_file(os.path.join(data_dir, file_name + ".lua")):
+        for spell_id, (_, _, reagents, _, _) in build_data.read_data_file(os.path.join(data_dir, file_name + ".lua")).items():
             own_recipes[spell_id] = file_name
+            for item_id, _ in reagents:
+                own_reagents.add(item_id)
     if not own_recipes:
         sys.exit("Keine Rezepte in Data/*.lua gefunden – zuerst Tools/build_data.py ausführen.")
     own_recipe_items = build_data.read_recipe_items(os.path.join(data_dir, "RecipeItems.lua"))
@@ -648,15 +700,20 @@ def main():
 
     path = os.path.join(data_dir, "RecipeSources.lua")
     old_sources, old_npcs = read_existing(path)
+    vendor_prices = vendor_reagent_prices(texts["Data/NPCs.lua"], own_reagents)
+    vendor_path = os.path.join(data_dir, "VendorPrices.lua")
+    old_vendor_prices = read_vendor_prices(vendor_path)
     names_changed = []
     if not args.dry_run:
         build_data.write_if_changed(path, output_lines(sources, npcs, version), GENERATED_LINE)
+        build_data.write_if_changed(vendor_path, vendor_prices_lines(vendor_prices, version), GENERATED_LINE)
         os.makedirs(os.path.join(data_dir, "Names"), exist_ok=True)
         for locale in LOCALES:
             if build_data.write_if_changed(os.path.join(data_dir, "Names", locale + ".lua"),
                                            names_lines(locale, names[locale]), GENERATED_LINE):
                 names_changed.append(locale)
-    print_report(stats, version, sources, npcs, old_sources, old_npcs, args.dry_run)
+    print_report(stats, version, sources, npcs, old_sources, old_npcs, args.dry_run,
+                 vendor_prices, old_vendor_prices)
     english_only = sum(len(re.findall(r"(?:^[dq]|,)=", field)) for encoded in sources.values()
                        for field in encoded.split("|") if field[:1] in ("d", "q"))
     print(f"  Namen: {len(ids)} NPCs, Objekte und Quests; je Sprache: "

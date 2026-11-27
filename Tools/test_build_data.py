@@ -125,5 +125,35 @@ class HotfixCacheTests(unittest.TestCase):
             self.assertEqual((hotfixes, path), ({}, None))
 
 
+class CreatedCountsTests(unittest.TestCase):
+    def test_extracts_multi_output_recipes_and_filters_others(self):
+        tables = {
+            "SpellEffect": {
+                1: {"SpellID": 2659, "Effect": build_data.EFFECT_CREATE_ITEM, "EffectItemType": 2841,
+                    "EffectBasePointsF": 2.0, "EffectBasePoints": 0},
+                2: {"SpellID": 3920, "Effect": build_data.EFFECT_CREATE_ITEM, "EffectItemType": 8067,
+                    "EffectBasePointsF": 200.0, "EffectBasePoints": 0},
+                3: {"SpellID": 7183, "Effect": build_data.EFFECT_CREATE_ITEM, "EffectItemType": 5997,
+                    "EffectBasePointsF": 1.0, "EffectBasePoints": 0},
+                4: {"SpellID": 818, "Effect": build_data.EFFECT_CREATE_ITEM, "EffectItemType": 0,
+                    "EffectBasePointsF": 5.0, "EffectBasePoints": 0},
+                5: {"SpellID": 9999, "Effect": build_data.EFFECT_CREATE_ITEM, "EffectItemType": 1234,
+                    "EffectBasePointsF": 0.0, "EffectBasePoints": 2},
+                6: {"SpellID": 8888, "Effect": build_data.EFFECT_CREATE_ITEM, "EffectItemType": 5678,
+                    "EffectBasePointsF": 4.0, "EffectBasePoints": 0},
+            }
+        }
+        counts = build_data.created_counts(tables, {2659, 3920, 7183, 818, 9999})
+        self.assertEqual(counts, {2659: 2, 3920: 200, 9999: 3})
+
+    def test_created_counts_round_trip_and_unchanged_build_skip(self):
+        counts = {2659: 2, 3920: 200}
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertTrue(build_data.write_created_counts(directory, "build1", counts))
+            path = Path(directory) / "CreatedCounts.lua"
+            self.assertEqual(build_data.read_created_counts(path), counts)
+            self.assertFalse(build_data.write_created_counts(directory, "build2", counts))
+
+
 if __name__ == "__main__":
     unittest.main()

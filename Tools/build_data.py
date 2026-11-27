@@ -322,6 +322,21 @@ def created_items(tables):
     return created
 
 
+def created_counts(tables, valid_spells):
+    """Recipes that create more than 1 item per craft: {spellID: count}."""
+    counts = {}
+    for effect in tables["SpellEffect"].values():
+        spell_id = effect["SpellID"]
+        if effect["Effect"] == EFFECT_CREATE_ITEM and effect["EffectItemType"] and spell_id in valid_spells:
+            bpf = effect.get("EffectBasePointsF") or 0
+            count = int(round(bpf))
+            if count <= 0 and (effect.get("EffectBasePoints") or 0) > 0:
+                count = int(effect["EffectBasePoints"]) + 1
+            if count > 1:
+                counts.setdefault(spell_id, count)
+    return counts
+
+
 # ----------------------------------------------------------------------------
 # Web additions
 # ----------------------------------------------------------------------------
@@ -437,6 +452,7 @@ DISPLAY_NAMES = {
     "Engineering": "Ingenieurskunst", "Leatherworking": "Lederverarbeitung", "Tailoring": "Schneiderei",
     "Mining": "Bergbau", "Herbalism": "Kräuterkunde", "Skinning": "Kürschnerei", "Cooking": "Kochkunst",
     "FirstAid": "Erste Hilfe", "Fishing": "Angeln", "RecipeItems": "Rezept-Items",
+    "CreatedCounts": "Stückzahlen",
 }
 
 
@@ -604,6 +620,28 @@ def read_recipe_items(path):
         return {int(a): int(b) for a, b in re.findall(r"\[(\d+)\] = (\d+),", f.read())}
 
 
+def write_created_counts(path, build_name, counts):
+    lines = [
+        "-- Data/CreatedCounts.lua",
+        f"{GENERATED_LINE} ({build_name}).",
+        "local _, ns = ...",
+        "",
+        "-- [spellID] = crafted quantity (only recipes producing more than 1 item; average if random)",
+        "ns.RegisterCreatedCounts({",
+    ]
+    for spell_id, count in sorted(counts.items()):
+        lines.append(f"    [{spell_id}] = {count},")
+    lines.append("})")
+    return write_if_changed(os.path.join(path, "CreatedCounts.lua"), lines)
+
+
+def read_created_counts(path):
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf8") as f:
+        return {int(a): int(b) for a, b in re.findall(r"\[(\d+)\] = (\d+),", f.read())}
+
+
 def main():
     tools_dir = os.path.dirname(os.path.abspath(__file__))
     addon_dir = os.path.dirname(tools_dir)
@@ -703,12 +741,21 @@ def main():
     total_changes += item_stats["neu"] + item_stats["entfernt"] + item_stats["geändert"]
     report.append(("RecipeItems", item_stats))
 
+    counts = created_counts(tables, all_recipes)
+    old_counts = read_created_counts(os.path.join(data_dir, "CreatedCounts.lua"))
+    count_stats = {"neu": len(set(counts) - set(old_counts)), "entfernt": len(set(old_counts) - set(counts)),
+                   "geändert": sum(1 for s in set(counts) & set(old_counts) if counts[s] != old_counts[s])}
+    count_stats.update({kind: 0 for kind in CHANGE_KINDS})
+    total_changes += count_stats["neu"] + count_stats["entfernt"] + count_stats["geändert"]
+    report.append(("CreatedCounts", count_stats))
+
     # Missing web pages would drop learning ranks and recipes – then keep the existing data
     incomplete = sorted(web.missing)
     if not args.dry_run and not incomplete:
         for file_name, skill_line, recipes in outputs:
             write_data_file(data_dir, file_name, skill_line, build_name, recipes)
         write_recipe_items(data_dir, build_name, items)
+        write_created_counts(data_dir, build_name, counts)
 
     print_header(build_name, hotfix_path, hotfix_count, len(trainer), trainer_files, web,
                  args.dry_run, non_english, localized_names, install_dir)
