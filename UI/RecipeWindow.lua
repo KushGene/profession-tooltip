@@ -220,12 +220,80 @@ local function ShowRowTooltip(row)
     else
         GameTooltip:AddLine(L["SOURCE_UNKNOWN"], 0.6, 0.6, 0.6)
     end
+    GameTooltip:AddLine(" ")
     if ns.GetSourceWaypoint(entry.spellID) then
-        GameTooltip:AddLine(" ")
         GameTooltip:AddLine(L["RECIPES_CLICK_MAP"], 0.5, 0.75, 1)
+        GameTooltip:AddLine(L["RECIPES_RIGHTCLICK_LINK"], 0.5, 0.75, 1)
+    else
+        GameTooltip:AddLine(L["RECIPES_CLICK_LINK"], 0.5, 0.75, 1)
     end
     GameTooltip:Show()
     ShowItemPreview(entry.spellID, recipe)
+end
+
+-- ----------------------------------------------------------------------------
+-- Link box: the ForeverDB page of a recipe, selected for Ctrl+C (an addon can't open a browser)
+-- ----------------------------------------------------------------------------
+local linkFrame
+
+local function CreateLinkFrame()
+    local frame = CreateFrame("Frame", "ProfessionTooltipLinkFrame", UIParent, "BackdropTemplate")
+    frame:SetSize(420, 96)
+    frame:SetPoint("CENTER", 0, 120)
+    frame:SetFrameStrata("FULLSCREEN_DIALOG")
+    frame:SetToplevel(true)
+    frame:SetClampedToScreen(true)
+    frame:EnableMouse(true)
+    Widgets.Backdrop(frame, { 0.05, 0.05, 0.06, 0.97 }, { Widgets.ACCENT[1], Widgets.ACCENT[2], Widgets.ACCENT[3], 0.8 })
+    tinsert(UISpecialFrames, "ProfessionTooltipLinkFrame") -- ESC closes it
+
+    local title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    title:SetPoint("TOPLEFT", 14, -12)
+    title:SetText(L["LINK_TITLE"])
+    title:SetTextColor(unpack(Widgets.ACCENT))
+
+    local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", -2, -2)
+    close:SetScript("OnClick", function() frame:Hide() end)
+
+    local box = CreateFrame("EditBox", nil, frame)
+    box:SetPoint("TOPLEFT", 14, -34)
+    box:SetPoint("TOPRIGHT", -14, -34)
+    box:SetHeight(24)
+    box:SetAutoFocus(false)
+    box:SetFontObject(GameFontHighlight)
+    box:SetTextInsets(6, 6, 0, 0)
+    local background = box:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints()
+    background:SetColorTexture(1, 1, 1, 0.08)
+    -- Read-only: anything typed over the link is put back at once
+    box:SetScript("OnTextChanged", function(self, userInput)
+        if userInput and self:GetText() ~= frame.link then
+            self:SetText(frame.link)
+            self:HighlightText()
+        end
+    end)
+    box:SetScript("OnMouseUp", function(self) self:HighlightText() end)
+    box:SetScript("OnEscapePressed", function() frame:Hide() end)
+    box:SetScript("OnEnterPressed", function() frame:Hide() end)
+    frame.box = box
+
+    local hint = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    hint:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 2, -8)
+    hint:SetText(L["LINK_HINT"])
+
+    frame:SetScript("OnHide", function() box:ClearFocus() end)
+    return frame
+end
+
+local function ShowLink(link)
+    linkFrame = linkFrame or CreateLinkFrame()
+    linkFrame.link = link
+    linkFrame.box:SetText(link)
+    linkFrame.box:SetCursorPosition(0)
+    linkFrame:Show()
+    linkFrame.box:SetFocus()
+    linkFrame.box:HighlightText()
 end
 
 local function CreateRow(parent, index)
@@ -259,10 +327,13 @@ local function CreateRow(parent, index)
     row.name:SetWordWrap(false)
 
     row:SetScript("OnEnter", ShowRowTooltip)
-    -- Click: world map and map pin on the vendor
-    row:SetScript("OnClick", function(self)
-        if self.entry then
-            ns.ShowSourceOnMap(self.entry.spellID)
+    -- Click: world map and map pin on the vendor; right-click (or click without a vendor):
+    -- the recipe's ForeverDB page, which lists every source (e.g. all creatures of a world drop)
+    row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    row:SetScript("OnClick", function(self, button)
+        if not self.entry then return end
+        if button == "RightButton" or not ns.ShowSourceOnMap(self.entry.spellID) then
+            ShowLink(ns.GetSourceLink(self.entry.spellID))
         end
     end)
     row:SetScript("OnLeave", function()

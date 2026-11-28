@@ -111,6 +111,7 @@ local DEFAULTS = {
     legacyCheck = true,            -- point out CookingTooltip/AlchemyTooltip on login
     characters = {},               -- account-wide: ["Name-Realm"] = { class, professions, known }
     trainerSkills = {},            -- account-wide, from the trainer scan: [spellID] = required rank
+    discountSeen = {},             -- account-wide: ["v<npc>:<item>"/"t<npc>:<spell>"] = "<reaction>:<paid/base>"
     seenNewOptions = {},           -- [optionKey] = true once the user has seen the option's "NEW" badge
 }
 

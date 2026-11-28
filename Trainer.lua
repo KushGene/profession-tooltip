@@ -76,6 +76,7 @@ local function Scan()
     -- list through the filters froze the game for a moment, for nothing to record.
     if IsTradeskillTrainer and not IsTradeskillTrainer() then return end
     local previous = ShowAllServices()
+    local npcID = ns.GetUnitNPCID and ns.GetUnitNPCID("npc")
 
     local changed = false
     for index = 1, GetNumTrainerServices() do
@@ -85,6 +86,13 @@ local function Scan()
             local professionID = skillName and FindProfessionByName(skillName)
             if professionID and skillRank and skillRank > 0 then
                 local spellID = GetServiceSpellID(index, name, professionID)
+                -- What the character pays here compared to the base cost (reputation discount)
+                local source = spellID and ns.GetRecipeSource and ns.GetRecipeSource(spellID)
+                local cost = GetTrainerServiceCost and GetTrainerServiceCost(index)
+                if source and source.trainer and type(cost) == "number" and ns.ObserveDiscount
+                    and not (issecretvalue and issecretvalue(cost)) then
+                    ns.ObserveDiscount("t", npcID, spellID, source.trainer.cost, cost)
+                end
                 if spellID and ns.db.trainerSkills[spellID] ~= skillRank then
                     ns.db.trainerSkills[spellID] = skillRank
                     changed = true

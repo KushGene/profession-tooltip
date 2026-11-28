@@ -5,6 +5,20 @@ version is posted as "What's new" on CurseForge, Wago and GitHub.
 
 ## Unreleased
 
+## 1.4.0 – 2026-11-28
+
+### New
+- Reputation discount on vendor and trainer prices: with Honored or better at a vendor's faction, the recipe shows the price you actually pay, e.g. "10s 80c (−10% reputation: Orgrimmar)". Trainer costs show the discounted price at the trainers of your factions next to the full price
+- Missing recipes window: click a recipe without a vendor (or right-click any recipe) to get its ForeverDB.net link, ready to copy with Ctrl+C – the page lists every creature it drops from, every vendor and quest
+- The addon notes the prices you pay at vendors and trainers, so future versions can learn the discounts of Revered and Exalted
+
+### Improved
+- Recipes that drop from many different creatures (197 recipes) now say "various creatures (full list on ForeverDB)" instead of three creatures that changed with every data update
+- Updated recipe sources from ForeverDB.net's latest WoW: Forever data: first known drop sources for 29 recipes (e.g. Savory Turtle Stew, Cleric's Elixir), new quests for Orcish War Leggings, Steaming Stag Steak and Minor Discolored Healing Potion, and Heavy Scorpid Bracers, Heavy Scorpid Helm and Great Rage Potion are no longer marked as limited supply at some vendors
+
+### Fixed
+- Corrected trainer costs for 7 Alchemy recipes that showed a reputation-discounted price, e.g. Draught of Detect Undead now 50s instead of 45s and Stonescale Oil 1g 50s instead of 1g 35s
+
 ## 1.3.0 – 2026-11-27
 
 ### New

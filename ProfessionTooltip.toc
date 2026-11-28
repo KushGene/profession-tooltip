@@ -70,6 +70,7 @@ Data\Darkmoon.lua
 Characters.lua
 Scanner.lua
 Trainer.lua
+Merchant.lua
 Tooltip.lua
 GatheringTooltip.lua
 Legacy.lua

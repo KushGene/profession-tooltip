@@ -13,7 +13,16 @@ local MERCHANTS_FAVOR = 3402 -- currency ID (CurrencyTypes)
 -- Filter values of the recipe window, in display order
 ns.SOURCE_KINDS = { "TRAINER", "VENDOR", "DROP", "QUEST", "OTHER" }
 
+-- Reputation discount on vendor and trainer prices: percent of the price paid by reaction
+-- (4 Neutral … 8 Exalted). Checked in Forever: Friendly nothing, Honored 10 %. Data/RecipeSources.lua
+-- brings the values Tools/build_sources.py derived from prices players paid (ns.db.discountSeen).
+-- Vendors round up to whole copper, trainers down.
+local discounts = { [4] = 100, [5] = 100, [6] = 90, [7] = 90, [8] = 90 }
+local MIN_OBSERVED_PRICE = 100 -- copper; below that the rounding hides the discount
+
 local packedSources, packedNPCs = {}, {}
+local trainerFactions = {} -- [skill line] = { faction IDs whose trainers teach the profession }
+local npcFactions = {}     -- [npc] = faction of trainers and reagent vendors
 local sources, npcs = {}, {} -- unpacked on demand
 local names = { n = {}, o = {}, q = {} } -- [ID] = name of NPCs, objects, quests
 
@@ -26,6 +35,28 @@ end
 function ns.RegisterSourceNPCs(list)
     for npcID, packed in pairs(list) do
         packedNPCs[npcID] = packed
+    end
+end
+
+function ns.RegisterTrainerFactions(list)
+    for skillLine, packed in pairs(list) do
+        local factions = {}
+        for id in packed:gmatch("%d+") do
+            factions[#factions + 1] = tonumber(id)
+        end
+        trainerFactions[skillLine] = factions
+    end
+end
+
+function ns.RegisterNPCFactions(list)
+    for npcID, factionID in pairs(list) do
+        npcFactions[npcID] = factionID
+    end
+end
+
+function ns.RegisterDiscounts(list)
+    for reaction, percent in pairs(list) do
+        discounts[reaction] = percent
     end
 end
 
@@ -104,6 +135,10 @@ local function Unpack(packed)
             source.kinds.DROP = true
         elseif kind == "n" then
             source.dropCount = tonumber(value)
+        elseif kind == "W" then
+            -- Many drop sources, none named: the item's page on ForeverDB lists them
+            source.worldDrop = true
+            source.kinds.DROP = true
         elseif kind == "x" then
             source.uncertain = true
         end
@@ -183,6 +218,29 @@ local function FactionName(factionID)
     end
 end
 
+-- The character's reaction to a faction (1 Hated … 8 Exalted), or nil
+local function Reaction(factionID)
+    if not factionID then return nil end
+    local reaction
+    if C_Reputation and C_Reputation.GetFactionDataByID then
+        local ok, data = pcall(C_Reputation.GetFactionDataByID, factionID)
+        if ok and data then reaction = data.reaction end
+    end
+    if not reaction and GetFactionInfoByID then
+        local ok, _, _, standingID = pcall(GetFactionInfoByID, factionID)
+        if ok then reaction = standingID end
+    end
+    if type(reaction) ~= "number" or (issecretvalue and issecretvalue(reaction)) then return nil end
+    return reaction
+end
+
+-- Percent of the price the character pays at this faction's vendors and trainers (100: no discount)
+local function DiscountPercent(factionID)
+    local reaction = Reaction(factionID)
+    return reaction and discounts[reaction] or 100
+end
+ns.GetDiscountPercent = DiscountPercent
+
 local function FavorName()
     if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
         local ok, info = pcall(C_CurrencyInfo.GetCurrencyInfo, MERCHANTS_FAVOR)
@@ -216,10 +274,10 @@ local function GetNPC(npcID)
         local packed = packedNPCs[npcID]
         npc = false
         if packed then
-            local name, uiMapID, x, y, side = packed:match("^([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)|")
+            local name, uiMapID, x, y, side, rest = packed:match("^([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)|(.*)$")
             npc = {
                 name = name, map = tonumber(uiMapID), x = tonumber(x) or 0, y = tonumber(y) or 0,
-                side = side ~= "" and side or nil,
+                side = side ~= "" and side or nil, faction = tonumber((rest or ""):match("^[^|]*|(%d+)")),
             }
         end
         npcs[npcID] = npc
@@ -273,7 +331,15 @@ local function VendorLine(vendor)
         end
     end
     if vendor.price > 0 then
-        text = text .. " – " .. ns.FormatMoney(vendor.price)
+        local npc = GetNPC(vendor.npc)
+        local percent = npc and DiscountPercent(npc.faction) or 100
+        if percent < 100 then
+            text = text .. " – " .. ns.FormatMoney(math.ceil(vendor.price * percent / 100)) .. " "
+                .. Colorize(COLOR_NOTE, "(" .. string.format(L["SOURCE_DISCOUNT"], 100 - percent,
+                    FactionName(npc.faction) or "?") .. ")")
+        else
+            text = text .. " – " .. ns.FormatMoney(vendor.price)
+        end
     end
     if vendor.limited then
         text = text .. " " .. Colorize(COLOR_NOTE, "(" .. L["SOURCE_LIMITED"] .. ")")
@@ -281,10 +347,37 @@ local function VendorLine(vendor)
     return text
 end
 
-local function TrainerLine(trainer)
+-- Best discount at trainers of this recipe's profession: percent paid and the factions that give it
+local function DiscountTrainerFactions(spellID)
+    local professionID
+    if ns.GetRecipe then
+        professionID = select(2, ns.GetRecipe(spellID))
+    end
+    local best, names = 100, {}
+    for _, factionID in ipairs(professionID and trainerFactions[professionID] or {}) do
+        local percent = DiscountPercent(factionID)
+        if percent < best then
+            best, names = percent, {}
+        end
+        if percent == best and percent < 100 then
+            names[#names + 1] = FactionName(factionID) or ("#" .. factionID)
+        end
+    end
+    return names, best
+end
+
+local function TrainerLine(trainer, spellID)
     local text = Colorize(COLOR_LABEL, L["SOURCE_TRAINER"] .. (trainer.cost > 0 and ":" or ""))
     if trainer.cost > 0 then
-        text = text .. " " .. ns.FormatMoney(trainer.cost)
+        local factions, percent = DiscountTrainerFactions(spellID)
+        if #factions > 0 then
+            -- Which trainer teaches the recipe isn't known: the full price stays in view
+            text = text .. " " .. ns.FormatMoney(trainer.cost) .. " " .. Colorize(COLOR_NOTE, "("
+                .. string.format(L["SOURCE_TRAINER_DISCOUNT"], ns.FormatMoney(math.floor(trainer.cost * percent / 100)),
+                    table.concat(factions, ", ")) .. ")")
+        else
+            text = text .. " " .. ns.FormatMoney(trainer.cost)
+        end
     end
     -- Taught only by the other faction's trainers
     local side = PlayerSide()
@@ -336,7 +429,7 @@ function ns.GetSourceSummary(spellID)
     if source.trainer then parts[#parts + 1] = L["SOURCE_TRAINER"] end
     if source.vendors then parts[#parts + 1] = L["SOURCE_VENDOR"] end
     if source.quests then parts[#parts + 1] = L["SOURCE_QUEST"] end
-    if source.drops then parts[#parts + 1] = L["SOURCE_DROP"] end
+    if source.drops or source.worldDrop then parts[#parts + 1] = L["SOURCE_DROP"] end
     if #parts == 0 then
         parts[1] = source.auto and L["SOURCE_AUTO"] or L["SOURCE_ITEM"]
     end
@@ -353,7 +446,7 @@ function ns.GetSourceLines(spellID, maxVendors)
         lines[#lines + 1] = Colorize(COLOR_LABEL, L["SOURCE_AUTO"])
     end
     if source.trainer then
-        lines[#lines + 1] = TrainerLine(source.trainer)
+        lines[#lines + 1] = TrainerLine(source.trainer, spellID)
     end
     if source.item then
         lines[#lines + 1] = Label("SOURCE_ITEM") .. " " .. ItemName(source.item)
@@ -385,10 +478,64 @@ function ns.GetSourceLines(spellID, maxVendors)
     if source.drops then
         lines[#lines + 1] = DropLine(source)
     end
+    if source.worldDrop then
+        lines[#lines + 1] = Label("SOURCE_DROP") .. " " .. L["SOURCE_WORLD_DROP_MANY"]
+    end
     if source.uncertain then
         lines[#lines + 1] = Colorize(COLOR_NOTE, L["SOURCE_UNCERTAIN"])
     end
     return lines
+end
+
+-- ----------------------------------------------------------------------------
+-- Observed discounts: what the character paid compared to the base price in the data, by
+-- reaction. Tools/build_sources.py derives the discount of each reaction from these.
+-- ----------------------------------------------------------------------------
+local vendorBase -- ["npc:item"] = price of a recipe item at this vendor
+
+-- Base price of an item at a vendor: price (whole stack) and whether it is a unit price
+function ns.GetVendorBasePrice(npcID, itemID)
+    if not vendorBase then
+        vendorBase = {}
+        for _, packed in pairs(packedSources) do
+            local item = packed:match("^i(%d+)") or packed:match("|i(%d+)")
+            local list = packed:match("^v([^|]*)") or packed:match("|v([^|]*)")
+            if item and list then
+                for npc, price in list:gmatch("(%d+):(%d+):%d") do
+                    vendorBase[npc .. ":" .. item] = tonumber(price)
+                end
+            end
+        end
+    end
+    local price = vendorBase[npcID .. ":" .. itemID]
+    if price and price > 0 then return price, false end
+    local unit = ns.GetVendorPrice and ns.GetVendorPrice(itemID)
+    if unit and unit > 0 then return unit, true end
+end
+
+function ns.GetNPCFaction(npcID)
+    local npc = GetNPC(npcID)
+    return npc and npc.faction or npcFactions[npcID]
+end
+
+-- kind "v" (vendor, id = item) or "t" (trainer, id = spell); base and paid in copper
+function ns.ObserveDiscount(kind, npcID, id, base, paid)
+    if not (ns.db and npcID and id and base and paid) or base < MIN_OBSERVED_PRICE or paid <= 0 then return end
+    local reaction = Reaction(ns.GetNPCFaction(npcID))
+    local ratio = paid / base
+    if not reaction or ratio < 0.5 or ratio > 1.2 then return end
+    ns.db.discountSeen = ns.db.discountSeen or {}
+    ns.db.discountSeen[kind .. npcID .. ":" .. id] = string.format("%d:%.2f", reaction, ratio)
+end
+
+-- Page with all details on ForeverDB (where the source data comes from): the recipe item, which
+-- lists every creature it drops from, or the recipe spell if there is no recipe item.
+function ns.GetSourceLink(spellID)
+    local source = ns.GetRecipeSource(spellID)
+    if source and source.item then
+        return "https://foreverdb.net/item/" .. source.item
+    end
+    return "https://foreverdb.net/spell/" .. spellID
 end
 
 -- ----------------------------------------------------------------------------

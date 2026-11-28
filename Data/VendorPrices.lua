@@ -1,12 +1,13 @@
 -- Data/VendorPrices.lua
 -- Data: ForeverDB.net (https://foreverdb.net). Reuse requires this credit (GPL-3.0 section 7(b)), see README.md.
--- Generated automatically by Tools/build_sources.py from ForeverDB's addon data (2026-11-25.68f55f62).
+-- Generated automatically by Tools/build_sources.py from ForeverDB's addon data (2026-11-28.863b70bc).
 -- Do not edit by hand; run the script again instead.
 local _, ns = ...
 
 -- [itemID] = unit buy price in copper (unlimited vendor reagents)
 ns.RegisterVendorPrices({
     [159] = 5,
+    [929] = 300,
     [1179] = 25,
     [1205] = 100,
     [1645] = 400,
