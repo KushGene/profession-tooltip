@@ -39,6 +39,45 @@ ForeverDB publishes these files for reuse under GPL-3.0 with an attribution term
 "Data: ForeverDB.net" line in the generated file and the credit in the README and in the game.
 Parts are Classic data (CMaNGOS classic-db) until players confirm them in Forever.
 
+ForeverDB's data is crowd-sourced and changes almost daily. To keep only changes players would
+notice, the script stores what is stable:
+- **Drops:** ForeverDB names 3 of the creatures players have seen a recipe drop from. If it knows
+  more than 3 (and none has a Classic drop chance), the 3 named ones are an arbitrary pick that
+  changes with every report, so the recipe gets field `W` ("various creatures") instead. In the
+  "Missing recipes" window a click shows the link to the item's ForeverDB page with all of them.
+  The other drop lists are sorted (highest chance first, then by ID).
+- **Trainers:** only whether a side has trainers (1/0), not how many players have found.
+- **Vendors:** sorted by NPC ID; a vendor keeps its position unless it moved more than 1.0
+  (positions are averaged sightings and move by tenths every day).
+- **Trainer costs** come from what players saw, sometimes with a reputation discount that ForeverDB
+  converts back. The report lists costs that changed by exactly a discount factor or look like a
+  converted discount (e.g. 28s 80c = 90 % of 32s); check those at a trainer before releasing.
+
+**Reputation discount.** In Forever, vendors and trainers take 10 % off from Honored with their
+faction on; Friendly gives nothing (checked against prices players paid at vendors and trainers,
+which ForeverDB's own addon records unchanged). Vendors round the price up to whole copper,
+trainers down. The script stores each vendor's faction (7th field of its NPC string) and, per
+profession, the factions of its trainers (`ns.RegisterTrainerFactions`). Both come from Wowhead's
+English NPC tooltip (the row after the level names the faction) and Wowhead's search (name -> ID).
+ForeverDB doesn't say which trainer teaches which recipe, so the addon shows the full trainer cost
+and the discounted one "at trainers of <faction>".
+
+The discount of each standing is learned from what players paid: whenever a vendor or trainer
+window opens, the addon compares the prices with the base prices of the data and stores
+`reaction:paid/base` per vendor item and trainer recipe in `ns.db.discountSeen` (SavedVariables,
+account-wide; prices below 1s are skipped, the rounding hides the discount there). The script
+reads these from every account's `ProfessionTooltip.lua` in the WoW folder (set `WOW_DIR`) and
+from files other players send in:
+
+```sh
+WOW_DIR=… python3 Tools/build_sources.py --discounts path/to/their/ProfessionTooltip.lua
+```
+
+A standing takes the value at least 75 % of at least 5 observations agree on, and a higher
+standing never pays more than a lower one; otherwise the previous value stays (default: Friendly
+100 %, Honored 90 %, Revered and Exalted assumed 90 %). The result is `ns.RegisterDiscounts` in
+`Data/RecipeSources.lua`, shown in the report under "Ruf-Rabatt".
+
 Vendors, drop sources and quests are stored by ID and shown in the client's language. ForeverDB
 names drops and quests in English only, so the script matches them to IDs (ForeverDB's quest
 data, else Wowhead's search), keeps a match only if Wowhead's English name for the ID is the same,

@@ -187,6 +187,12 @@ check(contains(lines(1), "Trainer:|r 1s 50c"), "trainer cost")
 check(contains(lines(3), "Drop:|r Kobold Miner 2.5%, Battered Chest, World drop (level 5–25 creatures), Odd Beast 0.5%, Rot Hide Gnoll"),
     "drops: names by ID, world drop, English text, chances")
 check(contains(lines(3), "|cff888888(+7)|r"), "drops with the number of further sources")
+ns.RegisterRecipeSources({ [300] = "i505|W" })
+check(ns.HasSourceKind(300, "DROP") and ns.GetSourceSummary(300) == "Drop", "world drop counts as drop")
+check(contains(lines(300), "Drop:|r " .. L["SOURCE_WORLD_DROP_MANY"]) and not contains(lines(300), "(+"),
+    "world drop names no creatures")
+check(ns.GetSourceLink(300) == "https://foreverdb.net/item/505", "link to the recipe item's page")
+check(ns.GetSourceLink(1) == "https://foreverdb.net/spell/1", "link to the spell without a recipe item")
 check(contains(lines(4), "Quest:|r Wild Eyes, Wild Hearts, Lost Title, #701"), "quest titles by ID, English text, unknown ID")
 check(contains(lines(5), L["SOURCE_AUTO"]), "automatically learned")
 check(contains(lines(8), "|cffffd100Vendor|r") and contains(lines(8), L["SOURCE_UNCERTAIN"]), "vendor without details, uncertain note")
@@ -232,6 +238,104 @@ check(not contains(text, "Horde Herbalist") and not contains(text, "Zone 1454"),
     "a vendor of the other faction is never shown, even if nobody else sells the recipe")
 check(contains(text, "|cffffd100Vendor|r |cff888888(Horde)|r"), "sold by the other faction only: said so, without a place")
 check(contains(table.concat(alliance.GetSourceLines(7), "\n"), "|cff888888(Horde)|r"), "trainer of the other faction only")
+
+-- Reputation discount: 10 % from Honored on, vendors round up, trainers down
+local discount = reload()
+discount.RegisterRecipeSources({
+    [1] = "t175:1:1:1",
+    [2] = "i500|v900:1200:1,903:25:0,904:25:0",
+})
+discount.RegisterSourceNPCs({
+    [900] = "Alliance Alchemist|1453|55.5|61|A|1|72",
+    [903] = "Old Format Trader|1453|50|50|A|1",
+    [904] = "Cheap Trader|1453|40|40|A|1|72",
+})
+discount.RegisterTrainerFactions({ [171] = "47,72", [185] = "69" })
+local reactions = { [72] = 5 }
+C_Reputation.GetFactionDataByID = function(factionID)
+    return { name = "Faction " .. factionID, reaction = reactions[factionID] }
+end
+text = table.concat(discount.GetSourceLines(2), "\n")
+check(contains(text, "Alliance Alchemist – Zone 1453 (55.5, 61.0) – 1200 copper") and not contains(text, "reputation"),
+    "Friendly gives no discount")
+check(contains(table.concat(discount.GetSourceLines(1), "\n"), "Trainer:|r 175 copper")
+    and not contains(table.concat(discount.GetSourceLines(1), "\n"), "trainers of"), "no trainer discount when Friendly")
+reactions[72] = 6
+text = table.concat(discount.GetSourceLines(2), "\n")
+check(contains(text, "– 1080 copper |cff888888(" .. string.format(L["SOURCE_DISCOUNT"], 10, "Faction 72") .. ")|r"),
+    "Honored: vendor price with discount and its faction")
+check(contains(text, "Old Format Trader – Zone 1453 (50.0, 50.0) – 25 copper"), "vendor without a faction: full price")
+check(contains(table.concat(discount.GetSourceLines(1), "\n"),
+    "Trainer:|r 175 copper |cff888888(" .. string.format(L["SOURCE_TRAINER_DISCOUNT"], "157 copper", "Faction 72") .. ")|r"),
+    "trainer: full price and the discounted one at the faction's trainers (rounded down)")
+reactions[72], reactions[69] = 8, 8
+check(contains(table.concat(discount.GetSourceLines(1), "\n"), "Faction 72)") and
+    not contains(table.concat(discount.GetSourceLines(1), "\n"), "Faction 69"), "only factions of this profession's trainers")
+check(contains(table.concat(discount.GetSourceLines(2), "\n"), "Cheap Trader – Zone 1453 (40.0, 40.0) – 23 copper"),
+    "vendor discount rounds up to whole copper (22.5 -> 23)")
+C_Reputation.GetFactionDataByID = function() error("blocked") end
+GetFactionInfoByID = function(factionID) return "Faction " .. factionID, "", factionID == 72 and 6 or 4 end
+check(contains(table.concat(discount.GetSourceLines(1), "\n"), "trainers of"), "older reputation API as fallback")
+GetFactionInfoByID = nil
+
+-- Discounts of other standings come from the data (derived from what players paid)
+discount.RegisterDiscounts({ [8] = 80 })
+reactions[72], reactions[69] = 8, nil
+C_Reputation.GetFactionDataByID = function(factionID)
+    return { name = "Faction " .. factionID, reaction = reactions[factionID] }
+end
+text = table.concat(discount.GetSourceLines(2), "\n")
+check(contains(text, "– 960 copper |cff888888(" .. string.format(L["SOURCE_DISCOUNT"], 20, "Faction 72") .. ")|r"),
+    "Exalted: the discount of the data (20 %)")
+check(contains(table.concat(discount.GetSourceLines(1), "\n"), string.format(L["SOURCE_TRAINER_DISCOUNT"], "140 copper", "Faction 72")),
+    "trainer: best discount of the profession's factions")
+
+-- Observations: what the character paid, by reaction, for the vendor/trainer of a known faction
+discount.RegisterNPCFactions({ [3365] = 72 })
+ns.db.discountSeen = {}
+reactions[72] = 6
+check(discount.GetVendorBasePrice(900, 500) == 1200 and select(2, discount.GetVendorBasePrice(900, 500)) == false,
+    "base price of a recipe item at its vendor")
+discount.ObserveDiscount("v", 900, 500, 1200, 1080)
+discount.ObserveDiscount("t", 3365, 1, 175, 157)
+discount.ObserveDiscount("v", 903, 500, 1200, 1080)  -- vendor without a faction
+discount.ObserveDiscount("v", 900, 501, 50, 45)      -- too cheap to tell
+discount.ObserveDiscount("v", 900, 502, 1200, 4000)  -- not a discount
+check(ns.db.discountSeen["v900:500"] == "6:0.90" and ns.db.discountSeen["t3365:1"] == "6:0.90", "observations recorded")
+local seen = 0
+for _ in pairs(ns.db.discountSeen) do seen = seen + 1 end
+check(seen == 2, "only usable observations are kept")
+
+-- Merchant.lua: an open vendor's prices are compared with the base prices
+strsplit = function(sep, text)
+    local parts = {}
+    for part in (text .. sep):gmatch("(.-)" .. sep) do parts[#parts + 1] = part end
+    return unpack(parts)
+end
+local merchantHandlers = {}
+discount.RegisterEvent = function(event, handler) merchantHandlers[event] = handler end
+C_Timer = C_Timer or {}
+local timerAfter = C_Timer.After
+C_Timer.After = function(_, callback) callback() end
+UnitGUID = function() return "Creature-0-1-2-3-900-0000" end
+discount.RegisterVendorPrices = nil
+discount.GetVendorPrice = function(itemID) return itemID == 2320 and 10 or nil end
+local slots = { { id = 500, price = 1080, stack = 1 }, { id = 2320, price = 180, stack = 20 }, { id = 4, price = 99, stack = 1 } }
+GetMerchantNumItems = function() return #slots end
+GetMerchantItemID = function(index) return slots[index].id end
+GetMerchantItemInfo = function(index) return "Item", 0, slots[index].price, slots[index].stack end
+ns.db.discountSeen = {}
+assert(loadfile("Merchant.lua"))("Test", discount)
+merchantHandlers.MERCHANT_SHOW()
+check(ns.db.discountSeen["v900:500"] == "6:0.90", "merchant: recipe item compared with its vendor price")
+check(ns.db.discountSeen["v900:2320"] == "6:0.90", "merchant: reagent stack compared with the unit price × stack")
+check(ns.db.discountSeen["v900:4"] == nil, "merchant: items without a base price are skipped")
+check(discount.GetUnitNPCID("npc") == 900, "NPC ID from the GUID")
+UnitGUID = function() return "Player-1-0000" end
+check(discount.GetUnitNPCID("npc") == nil, "players have no NPC ID")
+UnitGUID, GetMerchantNumItems, GetMerchantItemID, GetMerchantItemInfo, strsplit = nil, nil, nil, nil, nil
+C_Timer.After = timerAfter
+C_Reputation.GetFactionDataByID = function(factionID) return { name = "Faction " .. factionID } end
 
 -- Localized names override the English ones
 local german = reload()
@@ -404,16 +508,38 @@ fillerRow.scripts.OnEnter(fillerRow)
 check(preview.spell == fillerRow.entry.spellID and rawget(preview, "item") == nil, "preview shows the spell for a recipe without any item")
 slider:SetValue(0)
 check(not contains(table.concat(GameTooltip.lines, "\n"), L["RECIPES_CLICK_MAP"]), "no map hint without a vendor")
+check(contains(table.concat(GameTooltip.lines, "\n"), L["RECIPES_CLICK_LINK"]), "link hint without a vendor")
 local shown
 OpenWorldMap = function(map) shown = map end
 ns.SetOption("recipeFilter", "VENDOR")
 rows[2].scripts.OnEnter(rows[2])
-check(contains(table.concat(GameTooltip.lines, "\n"), L["RECIPES_CLICK_MAP"]), "map hint on a recipe with a vendor")
+check(contains(table.concat(GameTooltip.lines, "\n"), L["RECIPES_CLICK_MAP"])
+    and contains(table.concat(GameTooltip.lines, "\n"), L["RECIPES_RIGHTCLICK_LINK"]), "map and link hint on a recipe with a vendor")
 rows[2].scripts.OnClick(rows[2])
 check(shown == 1453, "clicking a recipe opens the map on its vendor")
+local function linkBox()
+    for _, frame in ipairs(frames) do
+        if frame.kind == "EditBox" then return frame end
+    end
+end
+check(linkBox() == nil, "no link box before it is needed")
+rows[2].scripts.OnClick(rows[2], "RightButton")
+local linkFrame
+for _, frame in ipairs(frames) do
+    if frame.name == "ProfessionTooltipLinkFrame" then linkFrame = frame end
+end
+check(linkFrame and linkFrame.shown and linkBox().text == ns.GetSourceLink(rows[2].entry.spellID),
+    "right-click shows the ForeverDB link")
+check(UISpecialFrames[2] == "ProfessionTooltipLinkFrame", "ESC closes the link box")
+linkBox().text = "typed over"
+linkBox().scripts.OnTextChanged(linkBox(), true)
+check(linkBox().text == ns.GetSourceLink(rows[2].entry.spellID), "the link box is read-only")
+linkBox().scripts.OnEscapePressed(linkBox())
+check(not linkFrame.shown, "Escape in the link box closes it")
 shown = nil
-rows[1].scripts.OnClick(rows[1])
-check(shown == nil, "clicking a recipe without a known vendor does nothing")
+rows[1].scripts.OnClick(rows[1], "LeftButton")
+check(shown == nil and linkFrame.shown and linkBox().text == ns.GetSourceLink(rows[1].entry.spellID),
+    "clicking a recipe without a known vendor shows its link instead")
 ns.SetOption("recipeFilter", "ALL")
 OpenWorldMap = nil
 
@@ -454,16 +580,32 @@ check(order["Sources.lua"] and order["Data\\RecipeSources.lua"] and order["Sourc
     "TOC must load Sources.lua before Data\\RecipeSources.lua")
 check(order["Sources.lua"] > order["Locales\\zhTW.lua"] and order["UI\\RecipeWindow.lua"] > order["UI\\Widgets.lua"],
     "TOC must load locales before Sources.lua and widgets before the recipe window")
-local shipped, shippedNPCs = {}, {}
+local shipped, shippedNPCs, shippedTrainers, shippedNPCFactions, shippedDiscounts = {}, {}, {}, {}, {}
 local data = {
     RegisterRecipeSources = function(list) shipped = list end,
     RegisterSourceNPCs = function(list) shippedNPCs = list end,
+    RegisterTrainerFactions = function(list) shippedTrainers = list end,
+    RegisterNPCFactions = function(list) shippedNPCFactions = list end,
+    RegisterDiscounts = function(list) shippedDiscounts = list end,
 }
 assert(loadfile("Data/RecipeSources.lua"))("Test", data)
 local real = setmetatable({}, { __index = ns })
 assert(loadfile("Sources.lua"))("Test", real)
 real.RegisterRecipeSources(shipped)
 real.RegisterSourceNPCs(shippedNPCs)
+real.RegisterTrainerFactions(shippedTrainers)
+local withFaction = 0
+for _, packed in pairs(shippedNPCs) do
+    if packed:match("|%d+$") then withFaction = withFaction + 1 end
+end
+check(withFaction > 0 and shippedTrainers[171] and shippedTrainers[171]:match("^[%d,]+$"),
+    "shipped vendors and trainers have their factions")
+check(next(shippedNPCFactions) ~= nil and shippedDiscounts[5] == 100 and shippedDiscounts[6] == 90,
+    "shipped NPC factions and discounts (Friendly none, Honored 10 %)")
+for reaction = 4, 8 do
+    check(shippedDiscounts[reaction] and shippedDiscounts[reaction] <= (shippedDiscounts[reaction - 1] or 100),
+        "a higher standing never pays more")
+end
 -- Names: every language file loads for its locale only and registers real names
 local nameCounts = {}
 for _, locale in ipairs({ "enUS", "deDE", "frFR", "esES", "ruRU", "ptBR", "koKR", "zhCN", "zhTW" }) do

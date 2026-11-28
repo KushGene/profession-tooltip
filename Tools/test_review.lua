@@ -77,6 +77,18 @@ events.TRAINER_SHOW()
 assert(ns.db.trainerSkills[3] == nil and ns.db.trainerSkills[5] == nil,
     "name index must be rebuilt after recipes change")
 
+-- The trainer's prices are compared with the base cost of the data (reputation discount)
+local observed = {}
+ns.GetUnitNPCID = function() return 3365 end
+ns.GetRecipeSource = function(spellID) return spellID == 2 and { trainer = { cost = 2000 } } or nil end
+ns.ObserveDiscount = function(kind, npcID, id, base, paid) observed[#observed + 1] = { kind, npcID, id, base, paid } end
+GetTrainerServiceCost = function() return 1800 end
+offerName, tooltipID = "Ambiguous", 2
+events.TRAINER_SHOW()
+assert(#observed == 1 and observed[1][1] == "t" and observed[1][2] == 3365 and observed[1][3] == 2
+    and observed[1][4] == 2000 and observed[1][5] == 1800, "trainer cost must be observed against the base cost")
+GetTrainerServiceCost, ns.ObserveDiscount, ns.GetRecipeSource, ns.GetUnitNPCID = nil, nil, nil, nil
+
 -- Exercise the actual Extras-tab builder with lightweight UI stubs.
 local controls, displayed, characters = {}, {}, {}
 local function control()

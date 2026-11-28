@@ -46,12 +46,46 @@ class BuildTests(unittest.TestCase):
             RECIPES, NPCS, OWN, {601: 3, 777: 2})
 
     def test_every_kind_is_encoded(self):
-        self.assertEqual(self.sources[1], "t150:7:5:1")
-        self.assertEqual(self.sources[2], "i777|v902:800:0,900:1200:1,901:1200:0|r529|f45|x")
-        # Without a name source nothing is matched to an ID: the English names are kept
-        self.assertEqual(self.sources[3], "i601|d=Kobold Miner,=Rot / Hide Gnoll|n11")
+        # Trainers per side only as 1/0, vendors in a fixed order
+        self.assertEqual(self.sources[1], "t150:1:1:1")
+        self.assertEqual(self.sources[2], "i777|v900:1200:1,901:1200:0,902:800:0|r529|f45|x")
+        # 11 drop sources: a world drop, the 3 named ones are not kept
+        self.assertEqual(self.sources[3], "i601|W")
         self.assertEqual(self.sources[4], "a")
         self.assertEqual(self.sources[5], "t10:0:1:0|i502|q=Wild Eyes")
+
+    def test_few_drop_sources_are_named(self):
+        # Without a name source nothing is matched to an ID: the English names are kept
+        text = RECIPES.replace("dn=11", "dn=3")
+        sources = build_sources.build(text, NPCS, OWN, {601: 3})[0]
+        self.assertEqual(sources[3], "i601|d=Kobold Miner,=Rot / Hide Gnoll|n3")
+
+    def test_drops_have_a_fixed_order(self):
+        tokens = ["n9319", "w19-50", "n7805:8.08", "=Odd", "n12203", "n5623:6.26", "o2843"]
+        self.assertEqual(sorted(tokens, key=build_sources.drop_order),
+                         ["n7805:8.08", "n5623:6.26", "=Odd", "n9319", "n12203", "o2843", "w19-50"])
+
+    def test_world_drop_needs_many_sources_without_a_drop_chance(self):
+        self.assertTrue(build_sources.is_world_drop("A, B, C", 4))
+        self.assertFalse(build_sources.is_world_drop("A, B, C", 3))
+        self.assertFalse(build_sources.is_world_drop("A 2.5%, B, C", 20))  # Classic data with chances
+        self.assertFalse(build_sources.is_world_drop("world drop (level 5-25 creatures)", 20))
+        self.assertTrue(build_sources.is_world_drop("A, B, C, D", None))
+
+    def test_vendors_keep_their_place_unless_they_really_moved(self):
+        old = {1: "Vharr|1434|32.3|28|H|1", 2: "Far|1434|10|10||0", 3: "Map|1434|5|5||1"}
+        new = {1: "Vharr|1434|32.4|27.9|H|1", 2: "Far|1434|12.5|10||1", 3: "Map|1435|5|5||1", 4: "New|1|2|3||1"}
+        self.assertEqual(build_sources.keep_npc_places(new, old), {
+            1: "Vharr|1434|32.3|28|H|1", 2: "Far|1434|12.5|10||1", 3: "Map|1435|5|5||1", 4: "New|1|2|3||1"})
+
+    def test_discounted_trainer_costs_are_reported(self):
+        old = {1: "t4500:1:1:1", 2: "t1000:1:0:1", 3: "t500:1:1:1", 4: "t300:1:1:1"}
+        new = {1: "t5000:1:1:1", 2: "t1111:1:0:1", 3: "t500:1:1:1", 4: "t400:1:1:1", 5: "t2778:0:1:1|i9",
+               6: "t2880:1:1:1", 7: "t4250:1:1:1", 8: "t4500:1:1:1", 9: "t115:1:1:1"}
+        found = {(spell, reason.split()[0]) for spell, _, _, reason in
+                 build_sources.suspicious_trainer_costs(new, old)}
+        self.assertEqual(found, {(1, "Ruf-Rabatt?"), (2, "Ruf-Rabatt?"), (2, "unrunder"), (5, "unrunder"),
+                                 (6, "unrunder")})
 
     def test_recipes_without_any_information_get_no_entry(self):
         self.assertNotIn(6, self.sources)  # known to ForeverDB, nothing about its origin
@@ -134,9 +168,9 @@ class ResolverTests(unittest.TestCase):
                          ["=Klaven's Tower", "700", "95217", "=Quest 1"])
 
     def test_ids_and_name_files(self):
-        sources, npcs, _, _ = build_sources.build(RECIPES.replace("Rot | Hide Gnoll", "NPC 250627"), NPCS, OWN,
+        sources, npcs, _, _ = build_sources.build(RECIPES.replace("Rot | Hide Gnoll", "NPC 250627").replace("dn=11", "dn=3"), NPCS, OWN,
                                                   {601: 3}, self.resolver)
-        self.assertEqual(sources[3], "i601|dn40,n250627|n11")
+        self.assertEqual(sources[3], "i601|dn40,n250627|n3")
         ids = build_sources.referenced_ids(sources, npcs)
         self.assertEqual(ids, {("n", 900), ("n", 901), ("n", 40), ("n", 250627)})
         names = {key: FakeNames().name(key[0], key[1], "deDE") for key in ids if key in FakeNames.NAMES}
@@ -182,3 +216,103 @@ ns.sold = {
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FactionTests(unittest.TestCase):
+    TOOLTIP = ('{"name":"Vharr","tooltip":"<table><tr><td><b class=\\"q\\">Vharr</b></td></tr>'
+               '<tr><td>Superior Weaponsmith</td></tr><tr><td>Level 40 Humanoid (Normal)</td></tr>'
+               '<tr><td>Orgrimmar</td></tr></table>"}')
+    NO_FACTION = ('{"name":"Vendor-Tron 1000","tooltip":"<table><tr><td>Vendor-Tron 1000</td></tr>'
+                  '<tr><td>Level 38 Humanoid (Normal)</td></tr></table>"}')
+    SEARCH = '{"results":[{"type":7,"id":1637,"name":"Orgrimmar"},{"type":8,"id":76,"name":"Orgrimmar"}]}'
+
+    def test_faction_from_the_tooltip_row_after_the_level(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "wh_name_n1146_0").write_text(self.TOOLTIP, encoding="utf8")
+            (Path(directory) / "wh_name_n12245_0").write_text(self.NO_FACTION, encoding="utf8")
+            key = "wh_search_" + hashlib.sha1(b"orgrimmar").hexdigest()[:16]
+            (Path(directory) / key).write_text(self.SEARCH, encoding="utf8")
+            names = build_sources.NameSource(directory, offline=True)
+            self.assertEqual(names.factions({1146, 12245}), {1146: 76})
+            self.assertEqual(names.failed, 0)
+
+    def test_vendor_strings_and_trainer_factions(self):
+        npcs = {1146: "Vharr|1434|32.3|28|H|1", 12245: "Vendor-Tron 1000|1443|40|60||1|9"}
+        self.assertEqual(build_sources.add_factions(npcs, {1146: 76}),
+                         {1146: "Vharr|1434|32.3|28|H|1|76", 12245: "Vendor-Tron 1000|1443|40|60||1|"})
+        text = "ns.profTrainers = {Alchemy={1,2,3},[\"First Aid\"]={4},Unknown={1}}\n"
+        self.assertEqual(build_sources.trainer_factions(text, {1: 76, 2: 72, 3: 76, 4: 81}),
+                         {171: "72,76", 129: "81"})
+        self.assertEqual(build_sources.trainer_npcs(text), {1, 2, 3, 4})
+
+    def test_trainer_factions_are_written_and_not_read_as_vendors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "RecipeSources.lua")
+            npcs = {1146: "Vharr|1434|32.3|28|H|1|76"}
+            lines = build_sources.output_lines({1: "t100:1:1:1"}, npcs, "v1", {171: "72,76"})
+            self.assertIn("ns.RegisterTrainerFactions({", lines)
+            self.assertIn('    [171] = "72,76",', lines)
+            build_data.write_if_changed(path, lines, build_sources.GENERATED_LINE)
+            self.assertEqual(build_sources.read_existing(path), ({1: "t100:1:1:1"}, npcs))
+
+
+class DiscountTests(unittest.TestCase):
+    SV = '''ProfessionTooltipDB = {
+["trainerSkills"] = {
+[2153] = 50,
+},
+["discountSeen"] = {
+["v1146:2532"] = "6:0.90",
+["v1146:2533"] = "6:0.90",
+["t3365:2153"] = "6:0.897",
+["v3005:4355"] = "5:1.00",
+["v12:1"] = "7:0.85",
+["v12:2"] = "7:0.85",
+["v12:3"] = "7:0.85",
+["v12:4"] = "7:0.85",
+["v12:5"] = "7:0.85",
+["v12:6"] = "7:1.11",
+["v99:1"] = "8:0.30",
+},
+}
+'''
+
+    def test_observations_are_read_and_bucketed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ProfessionTooltip.lua"
+            path.write_text(self.SV, encoding="utf8")
+            counts, files = build_sources.discount_observations([str(path), str(Path(directory) / "missing.lua")])
+        self.assertEqual(files, 1)
+        # 0.897 (a trainer rounds down) is 90 %, 1.11 and 0.30 are left out
+        self.assertEqual(counts, {6: {90: 3}, 5: {100: 1}, 7: {85: 5}})
+
+    def test_discounts_need_enough_agreeing_observations(self):
+        discounts, sources = build_sources.derive_discounts({6: {90: 3}, 5: {100: 1}, 7: {85: 5}}, {})
+        self.assertEqual(discounts, {4: 100, 5: 100, 6: 90, 7: 85, 8: 90})
+        self.assertTrue(sources[7].startswith("beobachtet"))
+        self.assertIn("zu wenig", sources[6])
+        # Previous values stay without new evidence
+        self.assertEqual(build_sources.derive_discounts({}, {7: 85, 8: 80})[0][8], 80)
+        # Disagreeing observations change nothing
+        self.assertEqual(build_sources.derive_discounts({8: {80: 3, 90: 3}}, {})[0][8], 90)
+
+    def test_a_higher_standing_never_pays_more(self):
+        discounts, sources = build_sources.derive_discounts({6: {80: 6}, 7: {90: 6}}, {})
+        self.assertEqual((discounts[6], discounts[7]), (80, 90))
+        discounts, sources = build_sources.derive_discounts({7: {100: 6}}, {})
+        self.assertEqual(discounts[7], 90)
+        self.assertTrue(sources[7].startswith("Widerspruch"))
+
+    def test_discounts_and_npc_factions_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "RecipeSources.lua")
+            lines = build_sources.output_lines({1: "a"}, {}, "v1", {171: "76"}, {3365: 76}, {6: 90, 7: 85})
+            build_data.write_if_changed(path, lines, build_sources.GENERATED_LINE)
+            self.assertEqual(build_sources.read_discounts(path), {6: 90, 7: 85})
+            self.assertEqual(build_sources.read_number_table(path, "RegisterNPCFactions"), {3365: 76})
+            self.assertEqual(build_sources.read_existing(path), ({1: "a"}, {}))
+
+    def test_reagent_vendors(self):
+        text = "ns.npcs = {[1]={},[2]={},[3]={}}\nns.sold = {[10]={1,5,1,0,2,5,1,1,9,5,1,0},[11]={3,5,1,0}}\n"
+        self.assertEqual(build_sources.reagent_vendor_npcs(text, {10: 5}), {1})

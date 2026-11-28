@@ -32,6 +32,7 @@ Usage:
 """
 import argparse
 import concurrent.futures
+import glob
 import hashlib
 import json
 import os
@@ -57,6 +58,7 @@ LOCALE_CONDITIONS = {"esES": 'not (GetLocale() == "esES" or GetLocale() == "esMX
                      "ptBR": 'not (GetLocale() == "ptBR" or GetLocale() == "ptPT")'}
 NAME_KINDS = {"n": "npc", "o": "object", "q": "quest"}   # field prefix -> Wowhead tooltip type
 SEARCH_TYPES = {1: "n", 2: "o"}                           # Wowhead search result type -> prefix
+SEARCH_FACTION = 8                                        # Wowhead search result type of a faction
 FETCH_THREADS = 6
 # Vendors without a known faction that stand in a capital belong to its faction (uiMapID)
 CAPITAL_SIDES = {1453: "A", 1455: "A", 1457: "A", 1454: "H", 1456: "H", 1458: "H"}
@@ -66,6 +68,28 @@ CREDIT_LINE = ("-- Data: ForeverDB.net (https://foreverdb.net). Reuse requires t
 GENERATED_LINE = "-- Generated automatically by Tools/build_sources.py"
 
 MAX_VENDORS = 10          # per recipe; the list in the game shows fewer anyway
+# ForeverDB names only 3 of the drop sources players have seen; with more of them (a world drop or
+# many creatures of a dungeon) those 3 change with every new report. From this many sources without
+# a drop chance the recipe is stored as field W instead ("various creatures"), and the addon offers
+# the link to the item's page on ForeverDB, which lists all of them.
+WORLD_DROP_SOURCES = 4
+# Vendor coordinates are the average of players' sightings and move by tenths every day. A vendor
+# keeps its old position unless the new one is more than this far away (map percent).
+NPC_MOVE_MIN = 1.0
+# Reputation discounts on trainer prices (Friendly … Exalted): a changed trainer cost that is old
+# cost times one of these (or divided by it) is most likely a discounted price, not a new price.
+DISCOUNTS = (0.95, 0.9, 0.85, 0.8)
+# Reputation discount: share of the price paid (percent) by reaction (4 Neutral … 8 Exalted).
+# Checked in Forever: Friendly nothing, Honored 10 %. Revered and Exalted are assumed like Honored until
+# the addon's own observations (players' SavedVariables) show otherwise.
+DEFAULT_DISCOUNTS = {4: 100, 5: 100, 6: 90, 7: 90, 8: 90}
+REACTION_NAMES = {4: "Neutral", 5: "Freundlich", 6: "Wohlwollend", 7: "Respektvoll", 8: "Ehrfürchtig"}
+MIN_DISCOUNT_SAMPLES = 5      # observations a reaction needs before its discount is taken over
+MIN_DISCOUNT_SHARE = 0.75     # share of them that must agree
+# ForeverDB's profession names -> skill line IDs of the addon
+PROFESSION_IDS = {"Alchemy": 171, "Blacksmithing": 164, "Enchanting": 333, "Engineering": 202,
+                  "Leatherworking": 165, "Tailoring": 197, "Mining": 186, "Herbalism": 182, "Skinning": 393,
+                  "Cooking": 185, "First Aid": 129, "Fishing": 356}
 MIN_PRICE_VENDORS = 2     # minimum unlimited vendors to treat a reagent as vendor-bought
 MIN_MATCH = 0.9           # share of the addon's recipes ForeverDB must know, else the format changed
 MIN_TRANSLATED = 0.8      # share of the names every language must have, else nothing is written
@@ -254,7 +278,8 @@ def vendor_entries(item_ids, sold, npcs):
             if npc in npcs and npc not in seen:
                 seen.add(npc)
                 entries.append((npc, int(price or 0), 1 if limited else 0))
-    return entries[:MAX_VENDORS]
+    # ForeverDB's order changes between exports; a fixed order keeps the data stable
+    return sorted(entries)[:MAX_VENDORS]
 
 
 def encode_source(row, info, own_items, sold, npcs, resolver):
@@ -262,7 +287,7 @@ def encode_source(row, info, own_items, sold, npcs, resolver):
 
     Fields are separated by "|", the first character names the field:
       a                          learned together with the profession
-      t<copper>:<A>:<H>:<seen>   trainer: cost, trainers per side, 1 = seen at a Forever trainer
+      t<copper>:<A>:<H>:<seen>   trainer: cost, 1/0 = taught by trainers of this side, 1 = seen at a Forever trainer
       i<item>                    recipe item
       v<npc>:<copper>:<limited>,…  vendors of the recipe item (may be empty: sold, vendor unknown)
       r<faction>                 reputation the vendor asks for
@@ -272,6 +297,7 @@ def encode_source(row, info, own_items, sold, npcs, resolver):
                                  creatures of these levels) or =<English name>; n, o and = may end
                                  in :<chance in percent>
       n<count>                   drop sources in total
+      W                          various creatures: more drop sources than ForeverDB names, none named
       x                          uncertain whether it can be obtained in Forever
     """
     learned = row[9] if len(row) > 9 and isinstance(row[9], str) else ""
@@ -280,8 +306,9 @@ def encode_source(row, info, own_items, sold, npcs, resolver):
         fields.append("a")
         kinds.add("automatisch")
     if learned == "t" or "tc" in info:
-        per_side = (as_list(info.get("tn")) + [0, 0])[:2]
-        fields.append(f"t{int(info.get('tc', 0))}:{int(per_side[0])}:{int(per_side[1])}:{1 if info.get('tf') else 0}")
+        # Only whether a side has trainers: the counts grow with every trainer players find
+        per_side = [1 if count and int(count) > 0 else 0 for count in (as_list(info.get("tn")) + [0, 0])[:2]]
+        fields.append(f"t{int(info.get('tc', 0))}:{per_side[0]}:{per_side[1]}:{1 if info.get('tf') else 0}")
         kinds.add("Lehrer")
 
     items = list(own_items)
@@ -303,8 +330,11 @@ def encode_source(row, info, own_items, sold, npcs, resolver):
         fields.append("q" + ",".join(quests))
         kinds.add("Quest")
     drops = resolver.drops_field(str(info["dr"])) if info.get("dr") else []
-    if drops:
-        fields.append("d" + ",".join(drops))
+    if drops and is_world_drop(str(info["dr"]), info.get("dn")):
+        fields.append("W")
+        kinds.add("Drop")
+    elif drops:
+        fields.append("d" + ",".join(sorted(drops, key=drop_order)))
         if info.get("dn"):
             fields.append(f"n{int(info['dn'])}")
         kinds.add("Drop")
@@ -315,6 +345,172 @@ def encode_source(row, info, own_items, sold, npcs, resolver):
     if info.get("sp"):
         fields.append("x")
     return "|".join(fields), kinds, [npc for npc, _, _ in vendors]
+
+
+def drop_order(token):
+    """Fixed order of drop tokens: highest chance first, then by kind and ID (ForeverDB's varies)."""
+    chance = re.search(r":([\d.]+)$", token)
+    number_ = re.match(r"[no](\d+)", token)
+    return (-float(chance[1]) if chance else 0.0, token[:1], int(number_[1]) if number_ else 0, token)
+
+
+def is_world_drop(text, total):
+    """Many drop sources seen by players (no Classic drop chance among them)."""
+    if "%" in text or "world drop" in text:
+        return False
+    count = int(total) if total else len([piece for piece in text.split(",") if piece.strip()])
+    return count >= WORLD_DROP_SOURCES
+
+
+def keep_npc_places(npcs, old_npcs):
+    """Vendors that moved less than NPC_MOVE_MIN keep their old position (the rest is updated)."""
+    kept = {}
+    for npc, encoded in npcs.items():
+        new, old = encoded.split("|"), old_npcs.get(npc, "").split("|")
+        if len(old) >= 4 and len(new) >= 4 and old[1] == new[1]:
+            try:
+                moved = max(abs(float(new[2]) - float(old[2])), abs(float(new[3]) - float(old[3])))
+            except ValueError:
+                moved = NPC_MOVE_MIN + 1
+            if moved <= NPC_MOVE_MIN:
+                new[2], new[3] = old[2], old[3]
+        kept[npc] = "|".join(new)
+    return kept
+
+
+def add_factions(npcs, factions):
+    """Vendor strings get their faction as 7th field (empty: no faction, no discount)."""
+    return {npc: "|".join(encoded.split("|")[:6] + [str(factions.get(npc, ""))]) for npc, encoded in npcs.items()}
+
+
+def trainer_factions(npcs_text, factions):
+    """{skill line ID: "faction,faction"}: the factions whose trainers teach a profession. Their
+    reputation gives a discount on the trainer cost. Which trainer teaches which recipe is not
+    known, only which trainers a profession has."""
+    tables = lua_tables(npcs_text)
+    result = {}
+    for profession, trainers in (tables.get("profTrainers") or {}).items():
+        skill_line = PROFESSION_IDS.get(profession)
+        ids = sorted({factions[npc] for npc in as_list(trainers) if npc in factions})
+        if skill_line and ids:
+            result[skill_line] = ",".join(str(faction) for faction in ids)
+    return result
+
+
+def reagent_vendor_npcs(npcs_text, prices):
+    """Vendors that sell a reagent of Data/VendorPrices.lua (the addon compares their prices, too)."""
+    tables = lua_tables(npcs_text)
+    sold, npcs = tables.get("sold", {}), tables.get("npcs", {})
+    found = set()
+    for item_id in prices:
+        row = as_list(sold.get(item_id))
+        found.update(npc for npc, limited in zip(row[0::4], row[3::4]) if npc in npcs and not limited)
+    return found
+
+
+# ----------------------------------------------------------------------------
+# Reputation discounts observed by the addon (players' SavedVariables)
+# ----------------------------------------------------------------------------
+def discount_observations(paths):
+    """{reaction: {percent paid (5 % steps): count}} from the addon's ns.db.discountSeen of these
+    SavedVariables files: ["v<npc>:<item>" or "t<npc>:<spell>"] = "<reaction>:<paid/base>". Every
+    vendor item and trainer recipe counts once per file (its latest visit)."""
+    counts, files = {}, 0
+    for path in paths:
+        try:
+            with open(path, encoding="utf8", errors="replace") as f:
+                block = re.search(r'\["discountSeen"\]\s*=\s*\{([^{}]*)\}', f.read())
+        except OSError:
+            continue
+        if not block:
+            continue
+        files += 1
+        for _key, reaction, ratio in re.findall(r'\["([vt]\d+:\d+)"\]\s*=\s*"(\d):([\d.]+)"', block[1]):
+            percent = int(round(float(ratio) * 20)) * 5  # 0.897 (rounded down by a trainer) -> 90
+            if 50 <= percent <= 100:
+                bucket = counts.setdefault(int(reaction), {})
+                bucket[percent] = bucket.get(percent, 0) + 1
+    return counts, files
+
+
+def derive_discounts(observations, previous):
+    """-> ({reaction: percent paid}, {reaction: source text}). A reaction takes the value most of its
+    observations agree on; otherwise the previous value (or the default) stays. Higher standings
+    never pay more than lower ones."""
+    result = dict(DEFAULT_DISCOUNTS)
+    result.update({reaction: value for reaction, value in previous.items() if reaction in result})
+    sources = {reaction: ("Bestand" if reaction in previous else "Standard") for reaction in result}
+    for reaction in sorted(result):
+        bucket = observations.get(reaction, {})
+        total = sum(bucket.values())
+        if not total:
+            continue
+        percent, count = max(bucket.items(), key=lambda item: (item[1], -item[0]))
+        if total >= MIN_DISCOUNT_SAMPLES and count >= MIN_DISCOUNT_SHARE * total:
+            lower = [result[r] for r in result if r < reaction]
+            if lower and percent > min(lower):
+                sources[reaction] = f"Widerspruch: {percent} % beobachtet, bleibt {result[reaction]} %"
+                continue
+            result[reaction] = percent
+            sources[reaction] = f"beobachtet ({count} von {total})"
+        else:
+            sources[reaction] += f" (zu wenig/uneinig: {total} Beobachtungen)"
+    return result, sources
+
+
+def read_number_table(path, name):
+    """{key: number} of a ns.<name>({ [key] = number, … }) table in an existing data file."""
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf8") as f:
+        block = re.search(r"ns\." + name + r"\(\{([^}]*)\}\)", f.read())
+    return {int(a): int(b) for a, b in re.findall(r"\[(\d+)\] = (\d+),", block[1])} if block else {}
+
+
+def read_discounts(path):
+    return read_number_table(path, "RegisterDiscounts")
+
+
+def saved_variables(wow_dir, extra):
+    """The addon's SavedVariables of every account of the Forever client, plus extra files
+    (other players can send theirs)."""
+    install = build_data.installation_dir(wow_dir, build_data.PRODUCT) if wow_dir else None
+    paths = sorted(glob.glob(os.path.join(install, "WTF", "Account", "*", "SavedVariables",
+                                          "ProfessionTooltip.lua"))) if install else []
+    return paths + list(extra or [])
+
+
+def trainer_npcs(npcs_text):
+    return {npc for trainers in (lua_tables(npcs_text).get("profTrainers") or {}).values()
+            for npc in as_list(trainers) if isinstance(npc, int)}
+
+
+def trainer_cost(encoded):
+    for field in encoded.split("|"):
+        if field[:1] == "t":
+            return int(field[1:].split(":")[0])
+    return None
+
+
+def suspicious_trainer_costs(sources, old_sources):
+    """[(spell, old cost, new cost, reason)] for trainer costs that look like a discounted price."""
+    found = []
+    for spell, encoded in sorted(sources.items()):
+        new = trainer_cost(encoded)
+        if not new:
+            continue
+        old = trainer_cost(old_sources.get(spell, ""))
+        if old and old != new:
+            for factor in DISCOUNTS:
+                if abs(new - round(old * factor)) <= 1 or abs(old - round(new * factor)) <= 1:
+                    found.append((spell, old, new, f"Ruf-Rabatt? (×{factor} bzw. ÷{factor})"))
+                    break
+        # From 10s on, a price with copper that isn't 50c (11s 11c), or with copper that is exactly
+        # 90 % (Honored) of a whole silver price (28s 80c of 32s), is most likely a converted discount.
+        # Whole silver prices (18s, maybe 90 % of 20s) are too often real to report.
+        if new >= 1000 and new % 100 and (new % 50 or (new * 10 % 9 == 0 and new * 10 // 9 % 100 == 0)):
+            found.append((spell, old, new, "unrunder Preis (umgerechneter Rabatt?)"))
+    return found
 
 
 def encode_npc(npc):
@@ -455,6 +651,43 @@ class NameSource:
                 if isinstance(result, dict) and result.get("type") in SEARCH_TYPES
                 and isinstance(result.get("id"), int) and fold(str(result.get("name", ""))) == fold(name)]
 
+    def faction(self, npc):
+        """Faction ID of an NPC (the reputation its prices depend on), or None.
+        Wowhead's English tooltip names it in the row after the level ("Level 40 Humanoid"),
+        and Wowhead's search turns the name into the ID."""
+        body = self._get(WOWHEAD_TOOLTIP.format("npc", npc, LOCALES["enUS"]), f"wh_name_n{npc}_{LOCALES['enUS']}")
+        try:
+            tooltip = json.loads(body).get("tooltip", "") if body else ""
+        except (ValueError, AttributeError):
+            return None
+        rows = [re.sub(r"<[^>]+>", "", row).strip()
+                for row in re.findall(r"<tr><td>(.*?)</td></tr>", str(tooltip), re.S)]
+        for index, row in enumerate(rows[:-1]):
+            if row.startswith("Level "):
+                return self.faction_id(rows[index + 1])
+        return None
+
+    def faction_id(self, name):
+        if not name:
+            return None
+        key = "wh_search_" + hashlib.sha1(fold(name).encode("utf8")).hexdigest()[:16]
+        body = self._get(WOWHEAD_SEARCH.format(urllib.parse.quote_plus(name)), key)
+        try:
+            results = json.loads(body).get("results", []) if body else []
+        except (ValueError, AttributeError):
+            return None
+        for result in results:
+            if (isinstance(result, dict) and result.get("type") == SEARCH_FACTION
+                    and isinstance(result.get("id"), int) and fold(str(result.get("name", ""))) == fold(name)):
+                return result["id"]
+        return None
+
+    def factions(self, npcs):
+        """{npc: faction ID} for the NPCs that belong to a faction."""
+        with concurrent.futures.ThreadPoolExecutor(FETCH_THREADS) as pool:
+            found = list(pool.map(self.faction, sorted(npcs)))
+        return {npc: faction for npc, faction in zip(sorted(npcs), found) if faction}
+
     def all_names(self, ids):
         """{locale: {(kind, id): name}} for every language; missing names are left out."""
         jobs = [(kind, id_, locale) for kind, id_ in sorted(ids) for locale in LOCALES]
@@ -498,7 +731,7 @@ def fetch_sources(web):
 # ----------------------------------------------------------------------------
 # Output
 # ----------------------------------------------------------------------------
-def output_lines(sources, npcs, version):
+def output_lines(sources, npcs, version, trainers=None, npc_factions=None, discounts=None):
     lines = [
         "-- Data/RecipeSources.lua",
         CREDIT_LINE,
@@ -508,21 +741,41 @@ def output_lines(sources, npcs, version):
         "local _, ns = ...",
         "",
         "-- [spellID] = \"field|field|…\", the first character names the field:",
-        "--   a automatic, t<copper>:<trainers A>:<trainers H>:<seen in Forever>, i<recipe item>,",
+        "--   a automatic, t<copper>:<A has trainers 1/0>:<H 1/0>:<seen in Forever>, i<recipe item>,",
         "--   v<npc>:<copper>:<limited>,… vendors, r<faction> reputation, f<Merchant's Favor>,",
         "--   q<quest ID or =English title>,…  d<drop source>,… with n<npc>, o<object>,",
         "--   w<from>-<to> (world drop, creature levels) or =<English name>, each optionally",
-        "--   :<chance in percent>; n<drop sources in total>, x uncertain in Forever.",
+        "--   :<chance in percent>; n<drop sources in total>, W various creatures (list on ForeverDB),",
+        "--   x uncertain in Forever.",
         "--   Names of NPCs, objects and quests: Data/Names/<locale>.lua",
         "ns.RegisterRecipeSources({",
     ]
     for spell_id, encoded in sorted(sources.items()):
         lines.append(f"    [{spell_id}] = {build_data.lua_string(encoded)},")
-    lines += ["})", "", "-- [npc] = \"name|uiMapID|x|y|side (A/H/empty)|seen in Forever\"",
+    lines += ["})", "", "-- [npc] = \"name|uiMapID|x|y|side (A/H/empty)|seen in Forever|faction\"",
+              "-- (faction: its reputation gives a discount from Honored on, empty if none)",
               "ns.RegisterSourceNPCs({"]
     for npc, encoded in sorted(npcs.items()):
         lines.append(f"    [{npc}] = {build_data.lua_string(encoded)},")
     lines.append("})")
+    if trainers:
+        lines += ["", "-- [skill line] = \"faction,…\": factions whose trainers teach the profession",
+                  "ns.RegisterTrainerFactions({"]
+        for skill_line, encoded in sorted(trainers.items()):
+            lines.append(f"    [{skill_line}] = {build_data.lua_string(encoded)},")
+        lines.append("})")
+    if npc_factions:
+        lines += ["", "-- [npc] = faction: trainers and reagent vendors (to compare their prices in the game)",
+                  "ns.RegisterNPCFactions({"]
+        for npc, faction in sorted(npc_factions.items()):
+            lines.append(f"    [{npc}] = {faction},")
+        lines.append("})")
+    if discounts:
+        lines += ["", "-- [reaction] = percent of the price paid (4 Neutral … 8 Exalted): reputation discount",
+                  "ns.RegisterDiscounts({"]
+        for reaction, percent in sorted(discounts.items()):
+            lines.append(f"    [{reaction}] = {percent},")
+        lines.append("})")
     return lines
 
 
@@ -552,6 +805,7 @@ def read_existing(path):
         return {}, {}
     with open(path, encoding="utf8") as f:
         text = f.read()
+    text = re.split(r"ns\.Register(?:TrainerFactions|NPCFactions|Discounts)\(", text, maxsplit=1)[0]
     parts = text.split("ns.RegisterSourceNPCs(", 1)
     entry = re.compile(r'(?m)^\s*\[(\d+)\] = "((?:[^"\\]|\\.)*)",')
     return tuple({int(key): build_data.lua_unescape(value) for key, value in entry.findall(part)}
@@ -609,7 +863,7 @@ def count_changes(old, new):
 
 
 def print_report(stats, version, sources, npcs, old_sources, old_npcs, dry_run,
-                 vendor_prices=None, old_vendor_prices=None):
+                 vendor_prices=None, old_vendor_prices=None, more_rows=()):
     bold, dim, green, yellow = build_data.bold, build_data.dim, build_data.green, build_data.yellow
     print(bold("Profession Tooltip – Bezugsquellen der Rezepte"
                + (" (Testlauf, es wird nichts geschrieben)" if dry_run else "")))
@@ -640,11 +894,20 @@ def print_report(stats, version, sources, npcs, old_sources, old_npcs, dry_run,
     rows = [("Rezepte", old_sources, sources), ("Händler-NPCs", old_npcs, npcs)]
     if vendor_prices is not None:
         rows.append(("Händler-Preise", old_vendor_prices or {}, vendor_prices))
+    rows += list(more_rows)
     for label, old, new in rows:
         added, removed, changed = count_changes(old, new)
         changes += added + removed + changed
         print(f"  {label:14} {len(new):>5} Einträge   {added} neu, {removed} entfernt, {changed} geändert")
     print()
+    suspicious = suspicious_trainer_costs(sources, old_sources)
+    if suspicious:
+        print("  " + yellow(f"⚠ {len(suspicious)} Lehrerkosten prüfen – im Spiel beim Lehrer "
+                            "(ohne Ruf-Rabatt) oder auf Wowhead Forever:"))
+        for spell, old, new, reason in suspicious:
+            change = f"{new:>6} (unverändert)" if old == new else f"{old if old is not None else '–':>6} → {new}"
+            print(f"    {spell:>8}  {change:<22} {reason}")
+        print()
     if changes == 0:
         print("  " + green("✔ Keine Änderungen – die Daten sind aktuell."))
     elif dry_run:
@@ -661,6 +924,11 @@ def main():
     parser.add_argument("--cache", default=os.path.join(tools_dir, ".cache"))
     parser.add_argument("--offline", action="store_true", help="keine Web-Zugriffe (nur der Cache)")
     parser.add_argument("--dry-run", action="store_true", help="nur prüfen und berichten, keine Dateien schreiben")
+    parser.add_argument("--wow-dir", default=os.environ.get("WOW_DIR"),
+                        help="WoW-Ordner (oder WOW_DIR): liest die Rabatt-Beobachtungen des Addons aus den "
+                             "SavedVariables aller Accounts")
+    parser.add_argument("--discounts", action="append", metavar="DATEI", default=[],
+                        help="weitere ProfessionTooltip.lua (SavedVariables anderer Spieler) mit Rabatt-Beobachtungen")
     args = parser.parse_args()
 
     own_recipes, own_reagents = {}, set()
@@ -698,14 +966,30 @@ def main():
     if poor:
         sys.exit(f"Zu wenige Namen für {', '.join(poor)} erhalten. Es wurde nichts geschrieben.")
 
+    vendor_prices = vendor_reagent_prices(texts["Data/NPCs.lua"], own_reagents)
+    print(build_data.dim("Lade die Fraktionen der Händler und Lehrer von Wowhead …"), flush=True)
+    others = trainer_npcs(texts["Data/NPCs.lua"]) | reagent_vendor_npcs(texts["Data/NPCs.lua"], vendor_prices)
+    factions = name_source.factions(set(npcs) | others)
+    if name_source.failed:
+        sys.exit(f"{name_source.failed} Fraktionsabfrage(n) bei Wowhead fehlgeschlagen – später erneut ausführen. "
+                 "Es wurde nichts geschrieben.")
+    trainers = trainer_factions(texts["Data/NPCs.lua"], factions)
+
     path = os.path.join(data_dir, "RecipeSources.lua")
     old_sources, old_npcs = read_existing(path)
-    vendor_prices = vendor_reagent_prices(texts["Data/NPCs.lua"], own_reagents)
+    npcs = add_factions(keep_npc_places(npcs, old_npcs), factions)
+    npc_factions = {npc: factions[npc] for npc in others - set(npcs) if npc in factions}
+    sv_paths = saved_variables(args.wow_dir, args.discounts)
+    observations, sv_files = discount_observations(sv_paths)
+    old_discounts = read_discounts(path)
+    old_npc_factions = read_number_table(path, "RegisterNPCFactions")
+    discounts, discount_sources = derive_discounts(observations, old_discounts)
     vendor_path = os.path.join(data_dir, "VendorPrices.lua")
     old_vendor_prices = read_vendor_prices(vendor_path)
     names_changed = []
     if not args.dry_run:
-        build_data.write_if_changed(path, output_lines(sources, npcs, version), GENERATED_LINE)
+        build_data.write_if_changed(path, output_lines(sources, npcs, version, trainers, npc_factions, discounts),
+                                    GENERATED_LINE)
         build_data.write_if_changed(vendor_path, vendor_prices_lines(vendor_prices, version), GENERATED_LINE)
         os.makedirs(os.path.join(data_dir, "Names"), exist_ok=True)
         for locale in LOCALES:
@@ -713,12 +997,24 @@ def main():
                                            names_lines(locale, names[locale]), GENERATED_LINE):
                 names_changed.append(locale)
     print_report(stats, version, sources, npcs, old_sources, old_npcs, args.dry_run,
-                 vendor_prices, old_vendor_prices)
+                 vendor_prices, old_vendor_prices,
+                 [("NPC-Fraktionen", old_npc_factions, npc_factions),
+                  ("Ruf-Rabatte", old_discounts, discounts)])
     english_only = sum(len(re.findall(r"(?:^[dq]|,)=", field)) for encoded in sources.values()
                        for field in encoded.split("|") if field[:1] in ("d", "q"))
     print(f"  Namen: {len(ids)} NPCs, Objekte und Quests; je Sprache: "
           + ", ".join(f"{locale} {len(names[locale])}" for locale in LOCALES))
     print(f"  Ohne ID (bleiben englisch): {english_only} Angaben")
+    with_faction = sum(1 for encoded in npcs.values() if encoded.split("|")[6:7] not in ([], [""]))
+    print(f"  Fraktionen (Ruf-Rabatt): {with_faction} von {len(npcs)} Rezepthändlern, Lehrer von "
+          f"{len(trainers)} Berufen, {len(npc_factions)} weitere Lehrer und Zutatenhändler")
+    build_data.heading("Ruf-Rabatt (Anteil des Preises)")
+    print(f"  Beobachtungen aus {sv_files} SavedVariables-Datei(en) von {len(sv_paths)}"
+          + ("" if args.wow_dir or args.discounts else " – WOW_DIR setzen, um sie zu lesen"))
+    for reaction, percent in sorted(discounts.items()):
+        seen = ", ".join(f"{p} %: {n}" for p, n in sorted(observations.get(reaction, {}).items(), reverse=True))
+        print(f"  {REACTION_NAMES[reaction]:12} {percent:>3} %   {discount_sources[reaction]}"
+              + (f"   [{seen}]" if seen else ""))
     if names_changed:
         print(f"  Data/Names aktualisiert: {', '.join(names_changed)}")
     print()

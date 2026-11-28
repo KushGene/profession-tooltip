@@ -7,7 +7,8 @@ local keys = {
     "RECIPES_SUMMARY", "RECIPES_SHOWN", "RECIPES_EMPTY", "OPT_RECIPE_SOURCE", "OPT_RECIPE_SOURCE_DESC",
     "SOURCE_TRAINER", "SOURCE_VENDOR", "SOURCE_OTHER", "SOURCE_AUTO", "SOURCE_ITEM", "SOURCE_LIMITED",
     "SOURCE_MORE_VENDORS", "SOURCE_UNKNOWN", "SOURCE_UNCERTAIN", "SOURCE_CREDIT",
-    "SOURCE_WORLD_DROP", "RECIPES_CLICK_MAP",
+    "SOURCE_WORLD_DROP", "RECIPES_CLICK_MAP", "SOURCE_WORLD_DROP_MANY", "RECIPES_CLICK_LINK",
+    "RECIPES_RIGHTCLICK_LINK", "LINK_TITLE", "LINK_HINT", "SOURCE_DISCOUNT", "SOURCE_TRAINER_DISCOUNT",
     "OPT_DARKMOON", "OPT_DARKMOON_DESC", "DARKMOON_FAIRE", "DARKMOON_MIN_LEVEL", "OPT_SURNAME", "OPT_SURNAME_DESC",
     "DARKMOON_TURNIN", "DARKMOON_TICKET", "DARKMOON_TICKETS",
     "OPT_CRAFT_COST", "OPT_CRAFT_COST_DESC", "CRAFT_COST", "CRAFT_COST_MISSING", "NEW_BADGE",
@@ -36,6 +37,11 @@ for _, locale in ipairs({ "enUS", "enGB", "deDE", "frFR", "esES", "esMX", "ruRU"
         assert(found == count and not ns.L[key]:find("%%%d%$"), locale .. ": placeholders of " .. key)
     end
     assert(select(2, ns.L.SOURCE_WORLD_DROP:gsub("%%s", "")) == 1, locale .. ": placeholder of SOURCE_WORLD_DROP")
+    assert(select(2, ns.L.SOURCE_DISCOUNT:gsub("%%s", "")) == 1 and ns.L.SOURCE_DISCOUNT:find("%%d.*%%s"),
+        locale .. ": placeholders of SOURCE_DISCOUNT (percent before faction)")
+    assert(select(2, ns.L.SOURCE_TRAINER_DISCOUNT:gsub("%%s", "")) == 2, locale .. ": placeholders of SOURCE_TRAINER_DISCOUNT")
+    assert(pcall(string.format, ns.L.SOURCE_DISCOUNT, 10, "X") and pcall(string.format, ns.L.SOURCE_TRAINER_DISCOUNT, "1", "X"),
+        locale .. ": discount texts must format")
     assert(select(2, ns.L.DARKMOON_TURNIN:gsub("%%s", "")) == 1 and ns.L.DARKMOON_TURNIN:find("%%d.*%%s"),
         locale .. ": placeholders of DARKMOON_TURNIN (count before reward)")
     -- "→" (U+2192) is missing in the game fonts and shows as a box
